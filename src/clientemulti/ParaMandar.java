@@ -5,24 +5,35 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
-public class ParaMandar implements Runnable{
+
+public class ParaMandar implements Runnable {
+
     final BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
-    final DataOutputStream salida ;
-    public ParaMandar(Socket s) throws IOException {
+    final DataOutputStream salida;
+    private final String nombre;
+
+    public ParaMandar(Socket s, String nombre) throws IOException {
         this.salida = new DataOutputStream(s.getOutputStream());
+        this.nombre = nombre;
     }
 
     @Override
     public void run() {
-        while ( true ){
+        try {
+            salida.writeUTF(nombre);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        while (true) {
             String mensaje;
             try {
                 mensaje = teclado.readLine();
-                salida.writeUTF(mensaje);
-            } catch (IOException ex) {
-            }
 
+                salida.writeUTF(mensaje);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
-
 }
