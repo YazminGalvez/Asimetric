@@ -1,5 +1,4 @@
 package clientemulti;
-
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -16,7 +15,6 @@ public class ParaMandar implements Runnable {
         this.salida = new DataOutputStream(s.getOutputStream());
         this.nombre = nombre;
     }
-
     @Override
     public void run() {
         try {
