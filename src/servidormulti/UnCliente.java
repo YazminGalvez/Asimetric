@@ -9,6 +9,8 @@ public class UnCliente implements Runnable {
     final DataOutputStream salida;
     final DataInputStream entrada;
     private String nombreCliente;
+    private boolean registrado = false;
+    private int mensajesRestantes = 3;
 
     UnCliente(Socket s) throws IOException {
         salida = new DataOutputStream(s.getOutputStream());
@@ -22,15 +24,45 @@ public class UnCliente implements Runnable {
         this.salida.writeUTF(mensaje);
     }
 
+    public boolean puedeEnviarMensaje() {
+        if (registrado) {
+            return true;
+        }
+        return mensajesRestantes > 0;
+    }
+
+    public void decrementarMensajeRestante() {
+        if (!registrado && mensajesRestantes > 0) {
+            mensajesRestantes--;
+        }
+    }
+
+    public void setRegistrado(String nombre) {
+        this.registrado = true;
+        this.nombreCliente = nombre;
+    }
+
     @Override
     public void run() {
         try {
-            nombreCliente = entrada.readUTF();
+            String primerMensaje = entrada.readUTF();
+
+            if (primerMensaje.startsWith("/login") || primerMensaje.startsWith("/registrar")) {
+                Mensaje.procesarComandoInicial(primerMensaje, this);
+            } else {
+                this.nombreCliente = "Invitado-" + primerMensaje;
+                Mensaje.notificarATodos(nombreCliente + " (Invitado) se ha unido al chat.", this);
+            }
+
             ServidorMulti.clientes.put(nombreCliente, this);
-            Mensaje.notificarATodos(nombreCliente + " se ha unido al chat.", this);
+
             while (true) {
                 String mensaje = entrada.readUTF();
-                Mensaje.procesar(mensaje, this);
+                if (mensaje.startsWith("/") && !mensaje.startsWith("@")) {
+                    Mensaje.procesarComando(mensaje, this);
+                } else {
+                    Mensaje.procesar(mensaje, this);
+                }
             }
         } catch (SocketException e) {
             if (nombreCliente != null) {

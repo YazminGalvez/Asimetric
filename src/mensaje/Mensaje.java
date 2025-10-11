@@ -6,11 +6,25 @@ import java.io.IOException;
 public class Mensaje {
 
     public static void procesar(String mensaje, UnCliente remitente) throws IOException {
+
+        if (!remitente.puedeEnviarMensaje()) {
+            remitente.enviarMensaje("Sistema: Límite de 3 mensajes como invitado alcanzado. Por favor, /login o /registrar.");
+            return;
+        }
+
         if (mensaje.startsWith("@")) {
             enviarMensajePrivado(mensaje, remitente);
         } else {
             difundirMensajePublico(mensaje, remitente);
         }
+        remitente.decrementarMensajeRestante();
+    }
+    public static void procesarComando(String mensaje, UnCliente cliente) throws IOException {
+        cliente.enviarMensaje("Sistema:Usa /login o /registrar.");
+    }
+
+    public static void procesarComandoInicial(String mensaje, UnCliente cliente) throws IOException {
+        cliente.enviarMensaje("Sistema:Por favor, ingresa tu nombre de invitado o un comando válido.");
     }
 
     private static void enviarMensajePrivado(String mensaje, UnCliente remitente) throws IOException {
