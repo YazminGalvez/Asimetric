@@ -1,4 +1,5 @@
 package mensaje ;
+import servidormulti.Usuarios;
 import servidormulti.ServidorMulti;
 import servidormulti.UnCliente;
 import java.io.IOException;
@@ -6,58 +7,92 @@ import java.io.IOException;
 public class Mensaje {
 
     public static void procesar(String mensaje, UnCliente remitente) throws IOException {
-
         if (!remitente.puedeEnviarMensaje()) {
             remitente.enviarMensaje("Sistema: Límite de 3 mensajes como invitado alcanzado. Por favor, /login o /registrar.");
             return;
         }
-
         if (mensaje.startsWith("@")) {
-            enviarMensajePrivado(mensaje, remitente);
+            if (enviarMensajePrivado(mensaje, remitente)) remitente.decrementarMensajeRestante();
+        } else if (mensaje.trim().isEmpty()) {
+            remitente.enviarMensaje("Sistema: No puedes enviar un mensaje público vacío.");
         } else {
             difundirMensajePublico(mensaje, remitente);
+            remitente.decrementarMensajeRestante();
         }
-        remitente.decrementarMensajeRestante();
     }
     public static void procesarComando(String mensaje, UnCliente cliente) throws IOException {
-        cliente.enviarMensaje("Sistema:Usa /login o /registrar.");
-    }
-
-    public static void procesarComandoInicial(String mensaje, UnCliente cliente) throws IOException {
-        cliente.enviarMensaje("Sistema:Por favor, ingresa tu nombre de invitado o un comando válido.");
-    }
-
-    private static void enviarMensajePrivado(String mensaje, UnCliente remitente) throws IOException {
-        String[] partes = mensaje.split(" ", 2);
-        String destinatariosStr = partes[0].substring(1);
-        String mensajePrivado = (partes.length > 1) ? partes[1] : "";
-
-        if (mensajePrivado.isEmpty()) {
-            remitente.enviarMensaje("Sistema: No puedes enviar un mensaje privado vacío.");
+        String[] p = mensaje.split(" ");
+        String cmd = p[0];
+        if (p.length != 3) {
+            cliente.enviarMensaje("Sistema: Uso correcto: " + cmd + " usuario contrasena");
             return;
         }
+        String user = p[1], pass = p[2];
+        boolean exito = cmd.equals("/login")
+                ? Usuarios.verificarCredenciales(user, pass)
+                : Usuarios.registrarUsuario(user, pass);
+        if (exito) {
+            if (!cliente.getNombreCliente().equals(user)) ServidorMulti.clientes.remove(cliente.getNombreCliente());
 
-        String[] destinatarios = destinatariosStr.split(",");
-        String mensajeFormateado = "(Privado de " + remitente.getNombreCliente() + "): " + mensajePrivado;
-
-        for (String dest : destinatarios) {
-            String nombreDestinatario = dest.trim();
-            UnCliente clienteDestino = ServidorMulti.clientes.get(nombreDestinatario);
-
-            if (clienteDestino != null) {
-                clienteDestino.enviarMensaje(mensajeFormateado);
-            } else {
-                remitente.enviarMensaje("Sistema: El usuario '" + nombreDestinatario + "' no está conectado o no existe.");
-            }
+            cliente.setRegistrado(user);
+            ServidorMulti.clientes.put(user, cliente);
+            String msg = (cmd.equals("/login")) ? "¡Login exitoso!" : "¡Registro exitoso!";
+            cliente.enviarMensaje("Sistema: " + msg + " Ahora eres un usuario registrado (" + user + ").");
+        } else {
+            String errorMsg = (cmd.equals("/login")) ? "Error de login. Credenciales inválidas." : "Error de registro. El usuario ya existe.";
+            cliente.enviarMensaje("Sistema: " + errorMsg);
         }
-        remitente.enviarMensaje("(Mensaje privado para " + destinatariosStr + "): " + mensajePrivado);
+    }
+    public static void procesarComandoInicial(String mensaje, UnCliente cliente) throws IOException {
+        String[] p = mensaje.split(" ");
+        boolean exito = false;
+        String usuario = "";
+        String temp = "Invitado-Temporal";
+        if (p.length == 3) {
+            usuario = p[1];
+            if (p[0].equals("/login")) exito = Usuarios.verificarCredenciales(usuario, p[2]);
+            else if (p[0].equals("/registrar")) exito = Usuarios.registrarUsuario(usuario, p[2]);
+        }
+        if (exito) {
+            cliente.setRegistrado(usuario);
+            cliente.enviarMensaje("Sistema: ¡Login exitoso! Bienvenido de nuevo.");
+            notificarATodos(usuario + " se ha unido al chat.", cliente);
+        } else {
+            cliente.enviarMensaje("Sistema: Error en el comando de inicio de sesión/registro o credenciales inválidas. Puedes usar /login o /registrar en cualquier momento, o empezar a chatear como invitado.");
+            cliente.setStatusRegistro(false);
+            cliente.setNombre(temp);
+            notificarATodos(temp + " (Temporal) se ha unido al chat.", cliente);
+        }
     }
 
+    private static boolean enviarMensajePrivado(String mensaje, UnCliente remitente) throws IOException {
+        String[] p = mensaje.split(" ", 2);
+        String destStr = p[0].substring(1);
+        String msgPrivado = (p.length > 1) ? p[1] : "";
+        if (msgPrivado.trim().isEmpty()) {
+            remitente.enviarMensaje("Sistema: No puedes enviar un mensaje privado vacío.");
+            return false;
+        }
+        String msgFormateado = "(Privado de " + remitente.getNombreCliente() + "): " + msgPrivado;
+        int enviados = 0;
+
+        for (String dest : destStr.split(",")) {
+            UnCliente destino = ServidorMulti.clientes.get(dest.trim());
+            if (destino != null) {
+                destino.enviarMensaje(msgFormateado);
+                enviados++;
+            } else {
+                remitente.enviarMensaje("Sistema: El usuario '" + dest.trim() + "' no está conectado o no existe.");
+            }
+        }
+        remitente.enviarMensaje("(Mensaje privado para " + destStr + "): " + msgPrivado);
+        return enviados > 0;
+    }
     private static void difundirMensajePublico(String mensaje, UnCliente remitente) throws IOException {
-        String mensajeCompleto = remitente.getNombreCliente() + ": " + mensaje;
+        String msgCompleto = remitente.getNombreCliente() + ": " + mensaje;
         for (UnCliente cliente : ServidorMulti.clientes.values()) {
             if (cliente != remitente) {
-                cliente.enviarMensaje(mensajeCompleto);
+                cliente.enviarMensaje(msgCompleto);
             }
         }
     }

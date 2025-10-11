@@ -36,10 +36,15 @@ public class UnCliente implements Runnable {
             mensajesRestantes--;
         }
     }
-
     public void setRegistrado(String nombre) {
         this.registrado = true;
         this.nombreCliente = nombre;
+    }
+    public void setNombre(String nombre) {
+        this.nombreCliente = nombre;
+    }
+    public void setStatusRegistro(boolean estado) {
+        this.registrado = estado;
     }
 
     @Override
