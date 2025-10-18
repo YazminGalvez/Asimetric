@@ -47,6 +47,10 @@ public class UnCliente implements Runnable {
         this.registrado = estado;
     }
 
+    public boolean isRegistrado() {
+        return registrado;
+    }
+
     @Override
     public void run() {
         try {

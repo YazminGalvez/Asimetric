@@ -18,8 +18,13 @@ public class ClienteMulti {
         Scanner teclado = new Scanner(System.in);
         String entradaInicial = teclado.nextLine();
 
-        System.out.println("Para enviar un mensaje privado, usa: @usuario mensaje");
-        System.out.println("Puedes usar /login o /registrar en cualquier momento.");
+        System.out.println("------------------------------------------");
+        System.out.println("Opciones de chat:");
+        System.out.println("- Mensaje privado: @usuario mensaje");
+        System.out.println("- Login/Registro: /login usuario contrasena o /registrar usuario contrasena");
+        System.out.println("- Bloquear un usuario (solo reg.): /bloquear nombre_usuario");
+        System.out.println("- Desbloquear un usuario (solo reg.): /desbloquear nombre_usuario");
+        System.out.println("------------------------------------------");
 
 
         ParaMandar paraMandar = new ParaMandar(s, entradaInicial);
