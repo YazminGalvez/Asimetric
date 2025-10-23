@@ -1,7 +1,8 @@
 package mensaje ;
-import servidormulti.Usuarios;
 import servidormulti.ServidorMulti;
 import servidormulti.UnCliente;
+import servidormulti.Bloqueos;
+import basededatos.BaseDatos;
 import java.io.IOException;
 
 public class Mensaje {
@@ -31,8 +32,8 @@ public class Mensaje {
             }
             String user = p[1], pass = p[2];
             boolean exito = cmd.equals("/login")
-                    ? Usuarios.verificarCredenciales(user, pass)
-                    : Usuarios.registrarUsuario(user, pass);
+                    ? BaseDatos.verificarCredenciales(user, pass)
+                    : BaseDatos.registrarUsuario(user, pass);
             if (exito) {
                 if (!cliente.getNombreCliente().equals(user)) ServidorMulti.clientes.remove(cliente.getNombreCliente());
 
@@ -44,13 +45,13 @@ public class Mensaje {
                 String errorMsg = (cmd.equals("/login")) ? "Error de login. Credenciales inválidas." : "Error de registro. El usuario ya existe.";
                 cliente.enviarMensaje("Sistema: " + errorMsg);
             }
-        } else if (cmd.equals("/bloquear") || cmd.equals("/desbloquear")) { // <-- Lógica de bloqueo
+        } else if (cmd.equals("/bloquear") || cmd.equals("/desbloquear")) {
             if (!cliente.isRegistrado()) {
                 cliente.enviarMensaje("Sistema: Debes estar registrado y logueado para usar el comando " + cmd + ".");
                 return;
             }
             if (p.length != 2) {
-                cliente.enviarMensaje("Sistema: Uso correcto: " + cmd + " nombre_usuario"); // <-- Mensaje de uso correcto para /bloquear
+                cliente.enviarMensaje("Sistema: Uso correcto: " + cmd + " nombre_usuario");
                 return;
             }
 
@@ -63,13 +64,13 @@ public class Mensaje {
             }
 
             if (cmd.equals("/bloquear")) {
-                if (Usuarios.bloquearUsuario(remitente, objetivo)) {
+                if (Bloqueos.bloquearUsuario(remitente, objetivo)) {
                     cliente.enviarMensaje("Sistema: Has bloqueado a '" + objetivo + "'. Ya no recibirás sus mensajes públicos ni privados.");
                 } else {
                     cliente.enviarMensaje("Sistema: Error al bloquear a '" + objetivo + "'. El usuario no existe, ya estaba bloqueado o intentaste bloquearte a ti mismo.");
                 }
             } else {
-                if (Usuarios.desbloquearUsuario(remitente, objetivo)) {
+                if (Bloqueos.desbloquearUsuario(remitente, objetivo)) {
                     cliente.enviarMensaje("Sistema: Has desbloqueado a '" + objetivo + "'. Ahora recibirás sus mensajes.");
                 } else {
                     cliente.enviarMensaje("Sistema: Error al desbloquear a '" + objetivo + "'. El usuario no estaba bloqueado o no existe.");
@@ -89,13 +90,13 @@ public class Mensaje {
         if (p.length == 3) {
             usuario = p[1];
             if (p[0].equals("/login")) {
-                exito = Usuarios.verificarCredenciales(usuario, p[2]);
+                exito = BaseDatos.verificarCredenciales(usuario, p[2]);
                 if (!exito) {
                     errorMsg = "Error de login. Credenciales inválidas para: " + usuario;
                 }
             }
             else if (p[0].equals("/registrar")) {
-                exito = Usuarios.registrarUsuario(usuario, p[2]);
+                exito = BaseDatos.registrarUsuario(usuario, p[2]);
                 if (!exito) {
                     errorMsg = "Error de registro. El usuario " + usuario + " ya existe.";
                 }
@@ -131,7 +132,7 @@ public class Mensaje {
             UnCliente destino = ServidorMulti.clientes.get(nombreDestino);
 
             if (destino != null) {
-                if (destino.isRegistrado() && Usuarios.estaBloqueadoPor(nombreRemitente, nombreDestino)) {
+                if (destino.isRegistrado() && Bloqueos.estaBloqueadoPor(nombreRemitente, nombreDestino)) {
                     remitente.enviarMensaje("Sistema: Tu mensaje a '" + nombreDestino + "' no fue entregado porque te ha bloqueado.");
                     continue;
                 }
@@ -153,7 +154,7 @@ public class Mensaje {
             if (cliente != remitente) {
                 String nombreDestino = cliente.getNombreCliente();
 
-                if (cliente.isRegistrado() && Usuarios.estaBloqueadoPor(nombreRemitente, nombreDestino)) {
+                if (cliente.isRegistrado() && Bloqueos.estaBloqueadoPor(nombreRemitente, nombreDestino)) {
                     continue;
                 }
 
