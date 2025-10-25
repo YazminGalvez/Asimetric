@@ -21,6 +21,17 @@ public class Mensaje {
             remitente.decrementarMensajeRestante();
         }
     }
+
+    private static String validarFormatoCredenciales(String user, String pass) {
+        if (user == null || pass == null || user.length() < 4 || pass.length() < 4) {
+            return "El nombre de usuario y la contraseña deben tener al menos 4 caracteres.";
+        }
+        if (!user.matches("^[a-zA-Z0-9]+$")) {
+            return "El nombre de usuario solo debe contener letras y números.";
+        }
+        return null;
+    }
+
     public static void procesarComando(String mensaje, UnCliente cliente) throws IOException {
         String[] p = mensaje.split(" ");
         String cmd = p[0];
@@ -31,6 +42,13 @@ public class Mensaje {
                 return;
             }
             String user = p[1], pass = p[2];
+
+            String errorFormato = validarFormatoCredenciales(user, pass);
+            if (errorFormato != null) {
+                cliente.enviarMensaje("Sistema: Error de formato. " + errorFormato);
+                return;
+            }
+
             boolean exito = cmd.equals("/login")
                     ? BaseDatos.verificarCredenciales(user, pass)
                     : BaseDatos.registrarUsuario(user, pass);
@@ -58,6 +76,11 @@ public class Mensaje {
             String remitente = cliente.getNombreCliente();
             String objetivo = p[1];
 
+            if (objetivo.length() < 4 || !objetivo.matches("^[a-zA-Z0-9]+$")) {
+                cliente.enviarMensaje("Sistema: Error de formato. El nombre de usuario objetivo debe tener al menos 4 caracteres y solo contener letras y números.");
+                return;
+            }
+
             if (objetivo.equals(remitente)) {
                 cliente.enviarMensaje("Sistema: No puedes bloquearte/desbloquearte a ti mismo.");
                 return;
@@ -80,6 +103,7 @@ public class Mensaje {
             cliente.enviarMensaje("Sistema: Comando desconocido.");
         }
     }
+
     public static void procesarComandoInicial(String mensaje, UnCliente cliente) throws IOException {
         String[] p = mensaje.split(" ");
         boolean exito = false;
@@ -88,15 +112,21 @@ public class Mensaje {
         String errorMsg = "Error en el comando de inicio de sesión/registro o credenciales inválidas.";
 
         if (p.length == 3) {
+            String cmd = p[0];
             usuario = p[1];
-            if (p[0].equals("/login")) {
-                exito = BaseDatos.verificarCredenciales(usuario, p[2]);
+            String pass = p[2];
+
+            String errorFormato = validarFormatoCredenciales(usuario, pass);
+            if (errorFormato != null) {
+                errorMsg = "Error de formato. " + errorFormato;
+            } else if (cmd.equals("/login")) {
+                exito = BaseDatos.verificarCredenciales(usuario, pass);
                 if (!exito) {
                     errorMsg = "Error de login. Credenciales inválidas para: " + usuario;
                 }
             }
-            else if (p[0].equals("/registrar")) {
-                exito = BaseDatos.registrarUsuario(usuario, p[2]);
+            else if (cmd.equals("/registrar")) {
+                exito = BaseDatos.registrarUsuario(usuario, pass);
                 if (!exito) {
                     errorMsg = "Error de registro. El usuario " + usuario + " ya existe.";
                 }
@@ -105,14 +135,19 @@ public class Mensaje {
 
         if (exito) {
             cliente.setRegistrado(usuario);
-            cliente.enviarMensaje("Sistema: ¡Login exitoso! Bienvenido de nuevo.");
+            cliente.enviarMensaje("Sistema: OK_REGISTRADO ¡Login exitoso! Bienvenido de nuevo.");
             notificarATodos(usuario + " se ha unido al chat.", cliente);
         } else {
-            cliente.enviarMensaje("Sistema: " + errorMsg + " Puedes usar /login o /registrar en cualquier momento, o empezar a chatear como invitado.");
+            cliente.enviarMensaje("Sistema: " + errorMsg + " Entrarás como invitado temporal.");
             cliente.setStatusRegistro(false);
             cliente.setNombre(temp);
+            enviarMensajeUnico(cliente, "Sistema: OK_INVITADO Has entrado como invitado. (Límite: 3 mensajes)");
             notificarATodos(temp + " (Temporal) se ha unido al chat.", cliente);
         }
+    }
+
+    public static void enviarMensajeUnico(UnCliente cliente, String mensaje) throws IOException {
+        cliente.enviarMensaje(mensaje);
     }
 
     private static boolean enviarMensajePrivado(String mensaje, UnCliente remitente) throws IOException {
@@ -130,6 +165,11 @@ public class Mensaje {
         for (String dest : destStr.split(",")) {
             String nombreDestino = dest.trim();
             UnCliente destino = ServidorMulti.clientes.get(nombreDestino);
+
+            if (nombreDestino.length() < 4 || !nombreDestino.matches("^[a-zA-Z0-9]+$")) {
+                remitente.enviarMensaje("Sistema: El usuario destino '" + nombreDestino + "' no tiene un formato válido para un usuario registrado.");
+                continue;
+            }
 
             if (destino != null) {
                 if (destino.isRegistrado() && Bloqueos.estaBloqueadoPor(nombreRemitente, nombreDestino)) {

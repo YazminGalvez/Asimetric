@@ -60,6 +60,7 @@ public class UnCliente implements Runnable {
                 Mensaje.procesarComandoInicial(primerMensaje, this);
             } else {
                 this.nombreCliente = "Invitado-" + primerMensaje;
+                Mensaje.enviarMensajeUnico(this, "Sistema: OK_INVITADO Has entrado como invitado. (Límite: " + mensajesRestantes + " mensajes)");
                 Mensaje.notificarATodos(nombreCliente + " (Invitado) se ha unido al chat.", this);
             }
 
