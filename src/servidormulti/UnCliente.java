@@ -12,9 +12,12 @@ public class UnCliente implements Runnable {
     private boolean registrado = false;
     private int mensajesRestantes = 3;
 
-    UnCliente(Socket s) throws IOException {
+    private final ControladorJuego controladorJuego;
+
+    UnCliente(Socket s, ControladorJuego controladorJuego) throws IOException {
         salida = new DataOutputStream(s.getOutputStream());
         entrada = new DataInputStream(s.getInputStream());
+        this.controladorJuego = controladorJuego;
     }
 
     public String getNombreCliente() {
@@ -68,7 +71,17 @@ public class UnCliente implements Runnable {
 
             while (true) {
                 String mensaje = entrada.readUTF();
-                if (mensaje.startsWith("/") && !mensaje.startsWith("@")) {
+
+                if (mensaje.startsWith("/gato") || mensaje.startsWith("/accept") ||
+                        mensaje.startsWith("/reject") || mensaje.startsWith("/move")) {
+
+                    if (isRegistrado()) {
+                        controladorJuego.manejarComando(mensaje, this);
+                    } else {
+                        enviarMensaje("Sistema Gato: Debes estar registrado y logueado para jugar al Gato.");
+                    }
+                }
+                else if (mensaje.startsWith("/") && !mensaje.startsWith("@")) {
                     Mensaje.procesarComando(mensaje, this);
                 } else {
                     Mensaje.procesar(mensaje, this);
@@ -76,11 +89,26 @@ public class UnCliente implements Runnable {
             }
         } catch (SocketException e) {
             if (nombreCliente != null) {
-                ServidorMulti.clientes.remove(nombreCliente);
-                Mensaje.notificarATodos(nombreCliente + " ha abandonado el chat.", null);
+                if (isRegistrado() && controladorJuego != null) {
+                    try {
+                        controladorJuego.finalizarPorDesconexion(this);
+                    } catch (IOException ioException) {
+                        System.err.println("Error al finalizar juego por desconexión: " + ioException.getMessage());
+                    }
+                }
+                ServidorMulti.desconectarCliente(this);
             }
         } catch (IOException ex) {
             System.out.println("Error de comunicación con " + (nombreCliente != null ? nombreCliente : "un cliente"));
+
+            if (nombreCliente != null && isRegistrado() && controladorJuego != null) {
+                try {
+                    controladorJuego.finalizarPorDesconexion(this);
+                } catch (IOException ioException) {
+                    System.err.println("Error al finalizar juego por IOException: " + ioException.getMessage());
+                }
+                ServidorMulti.desconectarCliente(this);
+            }
         }
     }
 }
