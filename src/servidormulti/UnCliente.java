@@ -63,11 +63,16 @@ public class UnCliente implements Runnable {
                 Mensaje.procesarComandoInicial(primerMensaje, this);
             } else {
                 this.nombreCliente = "Invitado-" + primerMensaje;
-                Mensaje.enviarMensajeUnico(this, "Sistema: OK_INVITADO Has entrado como invitado. (Límite: " + mensajesRestantes + " mensajes)");
                 Mensaje.notificarATodos(nombreCliente + " (Invitado) se ha unido al chat.", this);
             }
 
             ServidorMulti.clientes.put(nombreCliente, this);
+
+            enviarMensaje("Sistema: Juega al Gato (solo usuarios registrados):");
+            enviarMensaje("Sistema: - Proponer juego: /gato <usuario>");
+            enviarMensaje("Sistema: - Responder propuesta: /accept <usuario> o /reject <usuario>");
+            enviarMensaje("Sistema: - Mover ficha: /move <fila> <columna> (ej: /move 1 3)");
+
 
             while (true) {
                 String mensaje = entrada.readUTF();
