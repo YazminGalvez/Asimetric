@@ -76,6 +76,20 @@ public class ControladorJuego {
             return;
         }
 
+
+        boolean bloqueadoPorDestino = Bloqueos.estaBloqueadoPor(nombreDestino, proponenteNombre);
+        boolean bloqueadoPorRemitente = Bloqueos.estaBloqueadoPor(proponenteNombre, nombreDestino);
+
+        if (bloqueadoPorDestino || bloqueadoPorRemitente) {
+            String razon = bloqueadoPorRemitente ?
+                    "Tienes bloqueado al usuario." :
+                    "El usuario te tiene bloqueado.";
+
+            proponente.enviarMensaje("Sistema Gato: Error al proponer juego a '" + nombreDestino + "'. " + razon + " No puedes jugar con alguien con quien tienes un bloqueo activo.");
+            return;
+        }
+
+
         String parCanonica = getCanonicalPair(proponenteNombre, nombreDestino);
 
         if (juegosActivosPorPar.containsKey(parCanonica)) {
