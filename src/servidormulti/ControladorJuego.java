@@ -5,18 +5,26 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
 public class ControladorJuego {
     private final Map<String, String> propuestasPendientes;
-    private final Map<String, JuegoGato> juegosActivos;
+    private final Map<String, JuegoGato> juegosActivosPorPar;
+    private final Map<String, List<JuegoGato>> jugadorJuegosMap;
 
     public ControladorJuego() {
         this.propuestasPendientes = Collections.synchronizedMap(new HashMap<>());
-        this.juegosActivos = Collections.synchronizedMap(new HashMap<>());
+        this.juegosActivosPorPar = Collections.synchronizedMap(new HashMap<>());
+        this.jugadorJuegosMap = Collections.synchronizedMap(new HashMap<>());
     }
 
-    public JuegoGato getJuegoActivo(String nombre) {
-        return juegosActivos.get(nombre);
+    private String getCanonicalPair(String name1, String name2) {
+        if (name1.compareTo(name2) < 0) {
+            return name1 + ":" + name2;
+        } else {
+            return name2 + ":" + name1;
+        }
     }
 
     public void manejarComando(String mensaje, UnCliente remitente) throws IOException {
@@ -68,8 +76,10 @@ public class ControladorJuego {
             return;
         }
 
-        if (juegosActivos.containsKey(proponenteNombre) || juegosActivos.containsKey(nombreDestino)) {
-            proponente.enviarMensaje("Sistema Gato: Tú o el usuario '" + nombreDestino + "' ya están en una partida activa.");
+        String parCanonica = getCanonicalPair(proponenteNombre, nombreDestino);
+
+        if (juegosActivosPorPar.containsKey(parCanonica)) {
+            proponente.enviarMensaje("Sistema Gato: Ya tienes una partida activa con '" + nombreDestino + "'.");
             return;
         }
 
@@ -108,8 +118,10 @@ public class ControladorJuego {
             return;
         }
 
-        if (juegosActivos.containsKey(aceptanteNombre) || juegosActivos.containsKey(nombreProponente)) {
-            aceptante.enviarMensaje("Sistema Gato: Tú o el proponente están ahora en una partida activa. No se puede iniciar otra.");
+        String parCanonica = getCanonicalPair(nombreProponente, aceptanteNombre);
+
+        if (juegosActivosPorPar.containsKey(parCanonica)) {
+            aceptante.enviarMensaje("Sistema Gato: Ya existe una partida activa entre tú y el proponente. No se puede iniciar otra.");
             propuestasPendientes.remove(nombreProponente);
             return;
         }
@@ -117,8 +129,11 @@ public class ControladorJuego {
         propuestasPendientes.remove(nombreProponente);
 
         JuegoGato juego = new JuegoGato(proponente, aceptante);
-        juegosActivos.put(nombreProponente, juego);
-        juegosActivos.put(aceptanteNombre, juego);
+
+        juegosActivosPorPar.put(parCanonica, juego);
+
+        jugadorJuegosMap.computeIfAbsent(nombreProponente, k -> new ArrayList<>()).add(juego);
+        jugadorJuegosMap.computeIfAbsent(aceptanteNombre, k -> new ArrayList<>()).add(juego);
     }
 
     private void rechazarPropuesta(UnCliente rechazante, String nombreProponente) throws IOException {
@@ -148,17 +163,31 @@ public class ControladorJuego {
 
     private void manejarMovimiento(UnCliente cliente, String sFila, String sColumna) throws IOException {
         String clienteNombre = cliente.getNombreCliente();
-        JuegoGato juego = getJuegoActivo(clienteNombre);
 
-        if (juego == null) {
+        List<JuegoGato> juegosDelCliente = jugadorJuegosMap.get(clienteNombre);
+
+        if (juegosDelCliente == null || juegosDelCliente.isEmpty()) {
             cliente.enviarMensaje("Sistema Gato: No estás en un juego activo. Usa /gato <usuario> para proponer uno.");
             return;
         }
 
-        if (juego.getEstado() != JuegoGato.EstadoJuego.ACTIVO) {
-            cliente.enviarMensaje("Sistema Gato: El juego ha terminado (" + juego.getEstado().name() + ").");
+        JuegoGato juegoParaMover = null;
+        for (JuegoGato juego : juegosDelCliente) {
+            if (juego.getTurnoActual() == cliente) {
+                juegoParaMover = juego;
+                break;
+            }
+        }
 
-            UnCliente oponente = juego.getContrincante(cliente);
+        if (juegoParaMover == null) {
+            cliente.enviarMensaje("Sistema Gato: No es tu turno en ninguna partida activa.");
+            return;
+        }
+
+        if (juegoParaMover.getEstado() != JuegoGato.EstadoJuego.ACTIVO) {
+            cliente.enviarMensaje("Sistema Gato: El juego ha terminado (" + juegoParaMover.getEstado().name() + ").");
+
+            UnCliente oponente = juegoParaMover.getContrincante(cliente);
             if (oponente != null) {
                 removerJuego(clienteNombre, oponente.getNombreCliente());
             }
@@ -168,10 +197,10 @@ public class ControladorJuego {
         try {
             int fila = Integer.parseInt(sFila);
             int columna = Integer.parseInt(sColumna);
-            boolean juegoTerminado = juego.realizarMovimiento(cliente, fila, columna);
+            boolean juegoTerminado = juegoParaMover.realizarMovimiento(cliente, fila, columna);
 
             if (juegoTerminado) {
-                UnCliente oponente = juego.getContrincante(cliente);
+                UnCliente oponente = juegoParaMover.getContrincante(cliente);
                 if (oponente != null) {
                     removerJuego(clienteNombre, oponente.getNombreCliente());
                 }
@@ -184,17 +213,14 @@ public class ControladorJuego {
     public void finalizarPorDesconexion(UnCliente desconectado) throws IOException {
         String nombreDesconectado = desconectado.getNombreCliente();
 
-        JuegoGato juego = juegosActivos.get(nombreDesconectado);
-        if (juego != null) {
-            UnCliente oponente = juego.getContrincante(desconectado);
+        List<JuegoGato> juegosDelCliente = jugadorJuegosMap.get(nombreDesconectado);
+        if (juegosDelCliente != null) {
+            for (JuegoGato juego : new ArrayList<>(juegosDelCliente)) {
+                UnCliente oponente = juego.getContrincante(desconectado);
+                String nombreOponente = (oponente != null) ? oponente.getNombreCliente() : null;
 
-            juego.finalizarPorAbandono(desconectado);
-
-            if (oponente != null) {
-                String nombreOponente = oponente.getNombreCliente();
+                juego.finalizarPorAbandono(desconectado);
                 removerJuego(nombreDesconectado, nombreOponente);
-            } else {
-                removerJuego(nombreDesconectado, null);
             }
         }
 
@@ -228,9 +254,27 @@ public class ControladorJuego {
     }
 
     private void removerJuego(String nombre1, String nombre2) {
-        juegosActivos.remove(nombre1);
-        if (nombre2 != null) {
-            juegosActivos.remove(nombre2);
+        if (nombre1 != null && nombre2 != null) {
+            String parCanonica = getCanonicalPair(nombre1, nombre2);
+            juegosActivosPorPar.remove(parCanonica);
+        }
+
+        if (nombre1 != null && nombre2 != null) {
+            final String oponenteNombre = nombre2;
+            jugadorJuegosMap.computeIfPresent(nombre1, (k, list) -> {
+                list.removeIf(j -> (j.getJugadorX().getNombreCliente().equals(oponenteNombre) && j.getJugadorO().getNombreCliente().equals(nombre1)) ||
+                        (j.getJugadorO().getNombreCliente().equals(oponenteNombre) && j.getJugadorX().getNombreCliente().equals(nombre1)));
+                return list.isEmpty() ? null : list;
+            });
+        }
+
+        if (nombre2 != null && nombre1 != null) {
+            final String oponenteNombre = nombre1;
+            jugadorJuegosMap.computeIfPresent(nombre2, (k, list) -> {
+                list.removeIf(j -> (j.getJugadorX().getNombreCliente().equals(oponenteNombre) && j.getJugadorO().getNombreCliente().equals(nombre2)) ||
+                        (j.getJugadorO().getNombreCliente().equals(oponenteNombre) && j.getJugadorX().getNombreCliente().equals(nombre2)));
+                return list.isEmpty() ? null : list;
+            });
         }
     }
 }
