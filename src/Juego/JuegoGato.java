@@ -100,7 +100,7 @@ public class JuegoGato {
         String infoX = jugadorX.getNombreCliente() + " (X)";
         String infoO = jugadorO.getNombreCliente() + " (O)";
         String mensajeGeneral = "Sistema Gato: ¡Juego iniciado! " + infoX + " vs " + infoO + ".\n";
-        String mensajeTurno = "\nTurno de " + turnoActual.getNombreCliente() + " (" + getSimbolo(turnoActual) + "). Usa /move <fila> <columna> (ej: /move 1 3)";
+        String mensajeTurno = "\nTurno de " + turnoActual.getNombreCliente() + " (" + getSimbolo(turnoActual) + "). Usa mover <fila> <columna> (ej: mover 1 3)";
 
         jugadorX.enviarMensaje(mensajeGeneral + "Tú eres X." + dibujarTablero() + mensajeTurno);
         jugadorO.enviarMensaje(mensajeGeneral + "Tú eres O." + dibujarTablero() + mensajeTurno);
@@ -123,7 +123,7 @@ public class JuegoGato {
         }
 
         if (fila < 1 || fila > 3 || columna < 1 || columna > 3) {
-            cliente.enviarMensaje("Sistema Gato: Movimiento inválido. Usa /move <fila> <columna> (fila y columna deben ser 1, 2 o 3).");
+            cliente.enviarMensaje("Sistema Gato: Movimiento inválido. Usa mover <fila> <columna> (fila y columna deben ser 1, 2 o 3).");
             return false;
         }
 
@@ -131,7 +131,7 @@ public class JuegoGato {
         int c = columna - 1;
 
         if (tablero[r][c] != EstadoCasilla.VACIO) {
-            cliente.enviarMensaje("Sistema Gato: La posición (" + fila + "," + columna + ") ya está ocupada.");
+            cliente.enviarMensaje("Sistema Gato: La posicion (" + fila + "," + columna + ") ya esta ocupada.");
             return false;
         }
 
@@ -165,7 +165,7 @@ public class JuegoGato {
         UnCliente oponente = getContrincante(desconectado);
 
         if (oponente != null) {
-            oponente.enviarMensaje("Sistema Gato: ¡" + desconectado.getNombreCliente() + " se ha desconectado! Has ganado automáticamente el juego. La partida ha finalizado.");
+            oponente.enviarMensaje("Sistema Gato: ¡" + desconectado.getNombreCliente() + " se ha desconectado! Has ganado automaticamente el juego. La partida ha finalizado.");
         }
     }
 }

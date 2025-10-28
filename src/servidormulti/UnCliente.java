@@ -1,8 +1,10 @@
 package servidormulti;
+import juego.JuegoGato;
 import mensaje.Mensaje;
 import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.List;
 
 public class UnCliente implements Runnable {
 
@@ -54,6 +56,12 @@ public class UnCliente implements Runnable {
         return registrado;
     }
 
+    public boolean estaEnPartida() {
+        List<JuegoGato> juegos = ServidorMulti.controladorJuego.getJugadorJuegosMap().get(this.nombreCliente);
+        return juegos != null && !juegos.isEmpty();
+    }
+
+
     @Override
     public void run() {
         try {
@@ -70,21 +78,24 @@ public class UnCliente implements Runnable {
 
             enviarMensaje("Sistema: Juega al Gato (solo usuarios registrados):");
             enviarMensaje("Sistema: - Proponer juego: /gato <usuario>");
-            enviarMensaje("Sistema: - Responder propuesta: /accept <usuario> o /reject <usuario>");
-            enviarMensaje("Sistema: - Mover ficha: /move <fila> <columna> (ej: /move 1 3)");
+            enviarMensaje("Sistema: - Responder propuesta: acepto <usuario> o rechazo <usuario>");
+            enviarMensaje("Sistema: - Mover ficha: mover <fila> <columna> (ej: mover 1 3)");
 
 
             while (true) {
                 String mensaje = entrada.readUTF();
 
-                if (mensaje.startsWith("/gato") || mensaje.startsWith("/accept") ||
-                        mensaje.startsWith("/reject") || mensaje.startsWith("/move")) {
+                if (mensaje.startsWith("/gato") || mensaje.startsWith("acepto") ||
+                        mensaje.startsWith("rechazo") || mensaje.startsWith("mover")) {
 
                     if (isRegistrado()) {
                         controladorJuego.manejarComando(mensaje, this);
                     } else {
                         enviarMensaje("Sistema Gato: Debes estar registrado y logueado para jugar al Gato.");
                     }
+                }
+                else if (estaEnPartida() && !mensaje.equalsIgnoreCase("/exit")) {
+                    enviarMensaje("Sistema: Estas en una partida de Gato. Solo se permite chat simple con el oponente o el comando mover.");
                 }
                 else if (mensaje.startsWith("/") && !mensaje.startsWith("@")) {
                     Mensaje.procesarComando(mensaje, this);
@@ -98,14 +109,12 @@ public class UnCliente implements Runnable {
                     try {
                         controladorJuego.finalizarPorDesconexion(this);
                     } catch (IOException ioException) {
-                        System.err.println("Error al finalizar juego por desconexión: " + ioException.getMessage());
+                        System.err.println("Error al finalizar juego por desconexion: " + ioException.getMessage());
                     }
                 }
                 ServidorMulti.desconectarCliente(this);
             }
         } catch (IOException ex) {
-            System.out.println("Error de comunicación con " + (nombreCliente != null ? nombreCliente : "un cliente"));
-
             if (nombreCliente != null && isRegistrado() && controladorJuego != null) {
                 try {
                     controladorJuego.finalizarPorDesconexion(this);

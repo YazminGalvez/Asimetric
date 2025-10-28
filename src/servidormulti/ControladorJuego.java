@@ -42,13 +42,13 @@ public class ControladorJuego {
             case "/gato":
                 proponerJuego(remitente, argumento1);
                 break;
-            case "/accept":
+            case "acepto":
                 aceptarPropuesta(remitente, argumento1);
                 break;
-            case "/reject":
+            case "rechazo":
                 rechazarPropuesta(remitente, argumento1);
                 break;
-            case "/move":
+            case "mover":
                 manejarMovimiento(remitente, argumento1, argumento2);
                 break;
             default:
@@ -72,11 +72,9 @@ public class ControladorJuego {
         UnCliente clienteDestino = ServidorMulti.getCliente(nombreDestino);
 
         if (clienteDestino == null || !clienteDestino.isRegistrado()) {
-            proponente.enviarMensaje("Sistema Gato: El usuario '" + nombreDestino + "' no está conectado o no está autenticado.");
+            proponente.enviarMensaje("Sistema Gato: El usuario '" + nombreDestino + "' no esta conectado o no esta autenticado.");
             return;
         }
-
-
         boolean bloqueadoPorDestino = Bloqueos.estaBloqueadoPor(nombreDestino, proponenteNombre);
         boolean bloqueadoPorRemitente = Bloqueos.estaBloqueadoPor(proponenteNombre, nombreDestino);
 
@@ -88,7 +86,6 @@ public class ControladorJuego {
             proponente.enviarMensaje("Sistema Gato: Error al proponer juego a '" + nombreDestino + "'. " + razon + " No puedes jugar con alguien con quien tienes un bloqueo activo.");
             return;
         }
-
 
         String parCanonica = getCanonicalPair(proponenteNombre, nombreDestino);
 
@@ -106,14 +103,14 @@ public class ControladorJuego {
         propuestasPendientes.put(proponenteNombre, nombreDestino);
 
         proponente.enviarMensaje("Sistema Gato: Propuesta enviada a " + nombreDestino + ". Esperando respuesta...");
-        clienteDestino.enviarMensaje("Sistema Gato: ¡" + proponenteNombre + " te ha propuesto jugar al Gato! Usa /accept " + proponenteNombre + " o /reject " + proponenteNombre + ".");
+        clienteDestino.enviarMensaje("Sistema Gato: ¡" + proponenteNombre + " te ha propuesto jugar al Gato! Usa acepto " + proponenteNombre + " o rechazo " + proponenteNombre + ".");
     }
 
     private void aceptarPropuesta(UnCliente aceptante, String nombreProponente) throws IOException {
         String aceptanteNombre = aceptante.getNombreCliente();
 
         if (nombreProponente.isEmpty()) {
-            aceptante.enviarMensaje("Sistema Gato: Uso incorrecto. Usa /accept <usuario>");
+            aceptante.enviarMensaje("Sistema Gato: Uso incorrecto. Usa acepto <usuario>");
             return;
         }
 
@@ -127,7 +124,7 @@ public class ControladorJuego {
         UnCliente proponente = ServidorMulti.getCliente(nombreProponente);
 
         if (proponente == null || !proponente.isRegistrado()) {
-            aceptante.enviarMensaje("Sistema Gato: El proponente se ha desconectado o no está autenticado. No se pudo iniciar el juego.");
+            aceptante.enviarMensaje("Sistema Gato: El proponente se ha desconectado o no esta autenticado. No se pudo iniciar el juego.");
             propuestasPendientes.remove(nombreProponente);
             return;
         }
@@ -154,7 +151,7 @@ public class ControladorJuego {
         String rechazanteNombre = rechazante.getNombreCliente();
 
         if (nombreProponente.isEmpty()) {
-            rechazante.enviarMensaje("Sistema Gato: Uso incorrecto. Usa /reject <usuario>");
+            rechazante.enviarMensaje("Sistema Gato: Uso incorrecto. Usa rechazo <usuario>");
             return;
         }
 
@@ -220,7 +217,7 @@ public class ControladorJuego {
                 }
             }
         } catch (NumberFormatException e) {
-            cliente.enviarMensaje("Sistema Gato: Los argumentos para /move deben ser números. Usa /move <fila> <columna> (ej: /move 1 3)");
+            cliente.enviarMensaje("Sistema Gato: Los argumentos para mover deben ser numeros. Usa mover <fila> <columna> (ej: mover 1 3)");
         }
     }
 
@@ -290,5 +287,9 @@ public class ControladorJuego {
                 return list.isEmpty() ? null : list;
             });
         }
+    }
+
+    public Map<String, List<JuegoGato>> getJugadorJuegosMap() {
+        return jugadorJuegosMap;
     }
 }
