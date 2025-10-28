@@ -80,6 +80,9 @@ public class UnCliente implements Runnable {
             enviarMensaje("Sistema: - Proponer juego: /gato <usuario>");
             enviarMensaje("Sistema: - Responder propuesta: acepto <usuario> o rechazo <usuario>");
             enviarMensaje("Sistema: - Mover ficha: mover <fila> <columna> (ej: mover 1 3)");
+            enviarMensaje("Sistema: Ranking de Gato (solo usuarios registrados):");
+            enviarMensaje("Sistema: - Ver Ranking General: /ranking");
+            enviarMensaje("Sistema: - Estadisticas vs. jugador: /vs <usuario>");
 
 
             while (true) {

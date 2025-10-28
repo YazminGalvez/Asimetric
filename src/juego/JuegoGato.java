@@ -1,8 +1,8 @@
 package juego;
-
 import servidormulti.UnCliente;
 import java.io.IOException;
 import java.util.Random;
+import basededatos.BaseDatos;
 
 public class JuegoGato {
     public enum EstadoCasilla { VACIO, X, O }
@@ -116,6 +116,25 @@ public class JuegoGato {
         jugadorO.enviarMensaje(mensaje + dibujarTablero());
     }
 
+    private void registrarResultadoFinal() {
+        if (!jugadorX.isRegistrado() || !jugadorO.isRegistrado()) {
+            return;
+        }
+
+        String ganador = null;
+        if (estado == EstadoJuego.GANA_X) {
+            ganador = jugadorX.getNombreCliente();
+        } else if (estado == EstadoJuego.GANA_O) {
+            ganador = jugadorO.getNombreCliente();
+        }
+
+        BaseDatos.registrarResultadoGato(
+                jugadorX.getNombreCliente(),
+                jugadorO.getNombreCliente(),
+                ganador
+        );
+    }
+
     public boolean realizarMovimiento(UnCliente cliente, int fila, int columna) throws IOException {
         if (cliente != turnoActual) {
             cliente.enviarMensaje("Sistema Gato: No es tu turno.");
@@ -143,11 +162,13 @@ public class JuegoGato {
         if (verificarGanador(simbolo)) {
             estado = (simbolo == EstadoCasilla.X) ? EstadoJuego.GANA_X : EstadoJuego.GANA_O;
             notificarResultado(notificacion + "\nSistema Gato: ¡" + cliente.getNombreCliente() + " (" + getSimbolo(cliente) + ") ha ganado!");
+            registrarResultadoFinal();
             return true;
         }
         else if (verificarEmpate()) {
             estado = EstadoJuego.EMPATE;
             notificarResultado(notificacion + "\nSistema Gato: ¡Es un empate!");
+            registrarResultadoFinal();
             return true;
         }
 
@@ -166,6 +187,15 @@ public class JuegoGato {
 
         if (oponente != null) {
             oponente.enviarMensaje("Sistema Gato: ¡" + desconectado.getNombreCliente() + " se ha desconectado! Has ganado automaticamente el juego. La partida ha finalizado.");
+
+            if (oponente.isRegistrado() && desconectado.isRegistrado()) {
+                BaseDatos.registrarResultadoGato(
+                        oponente.getNombreCliente(),
+                        desconectado.getNombreCliente(),
+                        oponente.getNombreCliente()
+                );
+            }
         }
     }
 }
+

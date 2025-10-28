@@ -3,10 +3,12 @@ import servidormulti.ServidorMulti;
 import servidormulti.UnCliente;
 import servidormulti.Bloqueos;
 import basededatos.BaseDatos;
+import servidormulti.ServicioRanking;
 import java.io.IOException;
 
 public class Mensaje {
 
+    private static final ServicioRanking servicioRanking = new ServicioRanking();
     public static void procesar(String mensaje, UnCliente remitente) throws IOException {
         if (!remitente.puedeEnviarMensaje()) {
             remitente.enviarMensaje("Sistema: Límite de 3 mensajes como invitado alcanzado. Por favor, /login o /registrar.");
@@ -99,7 +101,26 @@ public class Mensaje {
                     cliente.enviarMensaje("Sistema: Error al desbloquear a '" + objetivo + "'. El usuario no estaba bloqueado o no existe.");
                 }
             }
-        } else {
+        }
+        else if (cmd.equals("/ranking")) {
+            if (!cliente.isRegistrado()) {
+                cliente.enviarMensaje("Sistema: Debes estar registrado y logueado para ver el ranking.");
+                return;
+            }
+            servicioRanking.mostrarRankingGeneral(cliente);
+        }
+        else if (cmd.equals("/vs")) {
+            if (!cliente.isRegistrado()) {
+                cliente.enviarMensaje("Sistema: Debes estar registrado y logueado para ver estadísticas Head-to-Head.");
+                return;
+            }
+            if (p.length != 2) {
+                cliente.enviarMensaje("Sistema: Uso correcto: /vs nombre_usuario");
+                return;
+            }
+            servicioRanking.mostrarEstadisticasVs(cliente, p[1]);
+        }
+        else {
             cliente.enviarMensaje("Sistema: Comando desconocido.");
         }
     }
