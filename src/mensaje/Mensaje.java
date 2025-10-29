@@ -114,11 +114,20 @@ public class Mensaje {
                 cliente.enviarMensaje("Sistema: Debes estar registrado y logueado para ver estadísticas Head-to-Head.");
                 return;
             }
-            if (p.length != 2) {
-                cliente.enviarMensaje("Sistema: Uso correcto: /vs nombre_usuario");
+            if (p.length != 3) {
+                cliente.enviarMensaje("Sistema: Uso correcto: /vs usuario1 usuario2");
                 return;
             }
-            servicioRanking.mostrarEstadisticasVs(cliente, p[1]);
+
+            String usuario1 = p[1];
+            String usuario2 = p[2];
+
+            if (usuario1.equals(usuario2)) {
+                cliente.enviarMensaje("Sistema VS: No puedes ver estadisticas Head-to-Head del mismo usuario.");
+                return;
+            }
+
+            servicioRanking.mostrarEstadisticasVsArbitrarias(cliente, usuario1, usuario2);
         }
         else {
             cliente.enviarMensaje("Sistema: Comando desconocido.");

@@ -49,21 +49,16 @@ public class ServicioRanking {
         }
     }
 
-    public void mostrarEstadisticasVs(UnCliente cliente, String objetivo) throws IOException {
-        String remitente = cliente.getNombreCliente();
+    public void mostrarEstadisticasVsArbitrarias(UnCliente cliente, String usuario1, String usuario2) throws IOException {
 
-        if (objetivo.length() < 4 || !objetivo.matches("^[a-zA-Z0-9]+$")) {
-            cliente.enviarMensaje("Sistema VS: El nombre de usuario objetivo no tiene un formato valido.");
-            return;
-        }
-
-        if (objetivo.equals(remitente)) {
-            cliente.enviarMensaje("Sistema VS: No puedes ver estadisticas Head-to-Head contigo mismo.");
+        if (usuario1.length() < 4 || !usuario1.matches("^[a-zA-Z0-9]+$") ||
+                usuario2.length() < 4 || !usuario2.matches("^[a-zA-Z0-9]+$")) {
+            cliente.enviarMensaje("Sistema VS: Los nombres de usuario no tienen un formato valido (mínimo 4 caracteres alfanuméricos).");
             return;
         }
 
         try {
-            Map<String, Object> stats = BaseDatos.obtenerEstadisticasVs(remitente, objetivo);
+            Map<String, Object> stats = BaseDatos.obtenerEstadisticasVs(usuario1, usuario2);
 
             if (stats.containsKey("error")) {
                 cliente.enviarMensaje("Sistema VS: Error. " + stats.get("error"));
@@ -71,6 +66,12 @@ public class ServicioRanking {
             }
 
             int total = (int) stats.get("total_partidas");
+
+            if (total == 0) {
+                cliente.enviarMensaje(String.format("Sistema VS: %s y %s no han jugado partidas entre ellos.", usuario1, usuario2));
+                return;
+            }
+
             int v1 = (int) stats.get("victorias1");
             int v2 = (int) stats.get("victorias2");
             int e = (int) stats.get("empates");
@@ -79,12 +80,12 @@ public class ServicioRanking {
 
             StringBuilder sb = new StringBuilder();
             sb.append("\n======================================================\n");
-            sb.append(String.format("     ESTADÍSTICAS HEAD-TO-HEAD: %s vs %s \n", remitente, objetivo));
+            sb.append(String.format("     ESTADÍSTICAS HEAD-TO-HEAD: %s vs %s \n", usuario1, usuario2));
             sb.append("======================================================\n");
             sb.append(String.format("Partidas jugadas entre ellos: %d\n", total));
             sb.append("------------------------------------------------------\n");
-            sb.append(String.format("» %-15s: Victorias: %-3d (%s)\n", remitente, v1, pct1));
-            sb.append(String.format("» %-15s: Victorias: %-3d (%s)\n", objetivo, v2, pct2));
+            sb.append(String.format("» %-15s: Victorias: %-3d (%s)\n", usuario1, v1, pct1));
+            sb.append(String.format("» %-15s: Victorias: %-3d (%s)\n", usuario2, v2, pct2));
             sb.append(String.format("» Empates: %d\n", e));
             sb.append("======================================================\n");
 
