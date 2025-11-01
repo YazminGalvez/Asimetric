@@ -42,6 +42,7 @@ public class ControladorGrupo {
     private void enviarAMiembro(UnCliente cliente, String mensaje, String nombreRemitente) throws IOException {
         if (cliente.isRegistrado()) {
             String nombreDestino = cliente.getNombreCliente();
+            if (Bloqueos.estaBloqueadoPor(nombreRemitente, nombreDestino)) return;
         }
         cliente.enviarMensaje(mensaje);
     }
@@ -90,9 +91,17 @@ public class ControladorGrupo {
 
     private boolean procesarBorrado(UnCliente cliente, String nombreGrupo) throws IOException {
         if (BaseDatos.eliminarGrupo(nombreGrupo, cliente.getNombreCliente())) {
+
             cliente.enviarMensaje("Sistema: Grupo '" + nombreGrupo + "' eliminado correctamente.");
-            if (cliente.getGrupoActual().equals(nombreGrupo)) {
-                cliente.setGrupoActual("Todos");
+
+
+            for (UnCliente c : ServidorMulti.clientes.values()) {
+                if (c.getGrupoActual().equals(nombreGrupo)) {
+                    c.setGrupoActual("Todos");
+                    if (c != cliente) {
+                        c.enviarMensaje("Sistema: El grupo '" + nombreGrupo + "' ha sido eliminado por el creador. Has sido movido a 'Todos'.");
+                    }
+                }
             }
         } else {
             cliente.enviarMensaje("Sistema: Error al borrar. No existe, o no eres el creador.");
