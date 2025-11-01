@@ -1,4 +1,5 @@
 package basededatos;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -57,7 +58,7 @@ public class BaseDatos {
                 + " puntos integer NOT NULL DEFAULT 0,\n"
                 + " victorias integer NOT NULL DEFAULT 0,\n"
                 + " derrotas integer NOT NULL DEFAULT 0,\n"
-                + " empates integer NOT NULL DEFAULT 0,\n"
+                + " empates integer integer NOT NULL DEFAULT 0,\n"
                 + " FOREIGN KEY (id_usuario) REFERENCES " + TABLE_USUARIOS + "(id) ON DELETE CASCADE\n"
                 + ");";
 
@@ -200,7 +201,7 @@ public class BaseDatos {
             pstmt.setInt(1, idUsuario);
             pstmt.setInt(2, idGrupo);
             pstmt.executeUpdate();
-            // Lógica de último visto se añade en Commit 3
+            actualizarUltimoVisto(idUsuario, idGrupo, 0);
         }
     }
 
@@ -282,6 +283,116 @@ public class BaseDatos {
         }
     }
 
+    public static long guardarMensajeGrupo(String grupo, String remitente, String mensaje) {
+        String sql = "INSERT INTO " + TABLE_MENSAJES_GRUPO + " (id_grupo, id_remitente, contenido) VALUES (?, ?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            Integer idGrupo = obtenerIdGrupo(grupo);
+            Integer idRemitente = obtenerIdUsuario(remitente);
+
+            if (idGrupo == null) {
+                return -1L;
+            }
+
+            pstmt.setInt(1, idGrupo);
+            pstmt.setObject(2, idRemitente);
+            pstmt.setString(3, mensaje);
+            pstmt.executeUpdate();
+
+            ResultSet rs = pstmt.getGeneratedKeys();
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+            return -1L;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error al guardar mensaje de grupo.", e);
+            return -1L;
+        }
+    }
+
+    public static List<String> obtenerMiembrosDeGrupo(String grupo) {
+        List<String> miembros = new ArrayList<>();
+        String sql = "SELECT u.usuario FROM " + TABLE_MIEMBROS_GRUPO + " m JOIN " + TABLE_USUARIOS + " u ON m.id_usuario = u.id JOIN " + TABLE_GRUPOS + " g ON m.id_grupo = g.id WHERE g.nombre = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, grupo);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                miembros.add(rs.getString("usuario"));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error al obtener miembros de grupo.", e);
+            return miembros;
+        }
+        return miembros;
+    }
+
+    public static List<String> obtenerMensajesNoVistos(String usuario, String grupo) {
+        List<String> mensajes = new ArrayList<>();
+        try {
+            Integer idUsuario = obtenerIdUsuario(usuario);
+            Integer idGrupo = obtenerIdGrupo(grupo);
+            if (idUsuario == null || idGrupo == null) {
+                return mensajes;
+            }
+
+            long ultimoVisto = obtenerUltimoMensajeVisto(idUsuario, idGrupo);
+
+            String sql = "SELECT m.id, m.contenido, u.usuario FROM " + TABLE_MENSAJES_GRUPO + " m LEFT JOIN " + TABLE_USUARIOS + " u ON m.id_remitente = u.id WHERE m.id_grupo = ? AND m.id > ? ORDER BY m.id ASC";
+            long maxId = ultimoVisto;
+
+            try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, idGrupo);
+                pstmt.setLong(2, ultimoVisto);
+                ResultSet rs = pstmt.executeQuery();
+
+                while (rs.next()) {
+                    mensajes.add(formatearMensaje(rs));
+                    maxId = rs.getLong("id");
+                }
+            }
+
+            if (maxId > ultimoVisto) {
+                actualizarUltimoVisto(idUsuario, idGrupo, maxId);
+            }
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error al obtener mensajes no vistos.", e);
+            return mensajes;
+        }
+        return mensajes;
+    }
+
+    private static String formatearMensaje(ResultSet rs) throws SQLException {
+        String remitente = rs.getString("usuario");
+        String contenido = rs.getString("contenido");
+        return (remitente == null ? "[Sistema]" : remitente) + ": " + contenido;
+    }
+
+    private static long obtenerUltimoMensajeVisto(Integer idUsuario, Integer idGrupo) throws SQLException {
+        String sql = "SELECT id_ultimo_mensaje_visto FROM " + TABLE_ULTIMO_VISTO + " WHERE id_usuario = ? AND id_grupo = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUsuario);
+            pstmt.setInt(2, idGrupo);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+            return 0;
+        }
+    }
+
+    private static void actualizarUltimoVisto(Integer idUsuario, Integer idGrupo, long idMensaje) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO " + TABLE_ULTIMO_VISTO + " (id_usuario, id_grupo, id_ultimo_mensaje_visto) VALUES (?, ?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUsuario);
+            pstmt.setInt(2, idGrupo);
+            pstmt.setLong(3, idMensaje);
+            pstmt.executeUpdate();
+        }
+    }
     private static void actualizarRanking(Integer idUsuario, int puntos, int victorias, int derrotas, int empates) throws SQLException {
         String sql = "INSERT INTO " + TABLE_RANKING_GATO + " (id_usuario, puntos, victorias, derrotas, empates) VALUES (?, ?, ?, ?, ?)\n"
                 + "ON CONFLICT(id_usuario) DO UPDATE SET\n"

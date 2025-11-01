@@ -2,7 +2,7 @@ package servidormulti;
 
 import basededatos.BaseDatos;
 import java.io.IOException;
-
+import java.util.List;
 
 public class ControladorGrupo {
 
@@ -21,13 +21,12 @@ public class ControladorGrupo {
         String nombreRemitente = remitente.getNombreCliente();
         String msgFormateado = nombreRemitente + " [" + grupo + "]: " + mensaje;
 
+        long nuevoId = BaseDatos.guardarMensajeGrupo(grupo, nombreRemitente, mensaje);
 
-
-
-        for (UnCliente cliente : ServidorMulti.clientes.values()) {
-            if (cliente != remitente && cliente.getGrupoActual().equals(grupo)) {
-                cliente.enviarMensaje(msgFormateado);
-            }
+        if (nuevoId > 0) {
+            difundirMensajeGrupo(grupo, msgFormateado, remitente);
+        } else {
+            remitente.enviarMensaje("Sistema: Error al guardar y enviar el mensaje.");
         }
         remitente.enviarMensaje(msgFormateado);
     }
@@ -41,6 +40,9 @@ public class ControladorGrupo {
     }
 
     private void enviarAMiembro(UnCliente cliente, String mensaje, String nombreRemitente) throws IOException {
+        if (cliente.isRegistrado()) {
+            String nombreDestino = cliente.getNombreCliente();
+        }
         cliente.enviarMensaje(mensaje);
     }
 
@@ -55,6 +57,7 @@ public class ControladorGrupo {
 
         cliente.setGrupoActual(nuevoGrupo);
         cliente.enviarMensaje("Sistema: Has cambiado al grupo '" + nuevoGrupo + "'.");
+        enviarMensajesPendientes(cliente, nuevoGrupo);
         return true;
     }
 
@@ -111,6 +114,7 @@ public class ControladorGrupo {
         if (BaseDatos.unirseAGrupo(cliente.getNombreCliente(), grupo)) {
             cliente.setGrupoActual(grupo);
             cliente.enviarMensaje("Sistema: Te has unido al grupo '" + grupo + "'.");
+            enviarMensajesPendientes(cliente, grupo);
         } else {
             cliente.enviarMensaje("Sistema: Error al unirse. El grupo no existe o ya eres miembro.");
         }
@@ -137,6 +141,20 @@ public class ControladorGrupo {
             cliente.enviarMensaje("Sistema: Error al salir. No existe o no eres miembro.");
         }
         return true;
+    }
+
+    private void enviarMensajesPendientes(UnCliente cliente, String grupo) throws IOException {
+        List<String> mensajes = BaseDatos.obtenerMensajesNoVistos(cliente.getNombreCliente(), grupo);
+
+        if (mensajes.isEmpty()) {
+            cliente.enviarMensaje("Sistema: No hay mensajes nuevos en '" + grupo + "'.");
+            return;
+        }
+
+        cliente.enviarMensaje("Sistema: Mensajes nuevos en '" + grupo + "':");
+        for (String msg : mensajes) {
+            cliente.enviarMensaje(msg);
+        }
     }
 
     private boolean validarArgumentos(String[] p, int length, String cmd) {
