@@ -13,6 +13,8 @@ public class UnCliente implements Runnable {
     private String nombreCliente;
     private boolean registrado = false;
     private int mensajesRestantes = 3;
+    private String grupoActual = "Todos";
+
 
     private final ControladorJuego controladorJuego;
 
@@ -56,6 +58,14 @@ public class UnCliente implements Runnable {
         return registrado;
     }
 
+    public String getGrupoActual() {
+        return grupoActual;
+    }
+
+    public void setGrupoActual(String grupo) {
+        this.grupoActual = grupo;
+    }
+
     public boolean estaEnPartida() {
         List<JuegoGato> juegos = ServidorMulti.controladorJuego.getJugadorJuegosMap().get(this.nombreCliente);
         return juegos != null && !juegos.isEmpty();
@@ -83,6 +93,10 @@ public class UnCliente implements Runnable {
             enviarMensaje("Sistema: Ranking de Gato (solo usuarios registrados):");
             enviarMensaje("Sistema: - Ver Ranking General: /ranking");
             enviarMensaje("Sistema: - Estadisticas: /vs <usuario1> <usuario2>");
+            enviarMensaje("Sistema: Comandos de Grupo:");
+            enviarMensaje("Sistema: - Unirse/Cambiar: /grupo <nombre>");
+            enviarMensaje("Sistema: - Unirse: /unir <nombre>");
+            enviarMensaje("Sistema: - Crear/Borrar: /crear <nombre>, /borrar <nombre> (solo creador)");
 
 
             while (true) {

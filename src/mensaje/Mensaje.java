@@ -4,11 +4,14 @@ import servidormulti.UnCliente;
 import servidormulti.Bloqueos;
 import basededatos.BaseDatos;
 import servidormulti.ServicioRanking;
+import servidormulti.ControladorGrupo;
 import java.io.IOException;
 
 public class Mensaje {
 
     private static final ServicioRanking servicioRanking = new ServicioRanking();
+    private static final ControladorGrupo controladorGrupo = new ControladorGrupo();
+
     public static void procesar(String mensaje, UnCliente remitente) throws IOException {
         if (!remitente.puedeEnviarMensaje()) {
             remitente.enviarMensaje("Sistema: Límite de 3 mensajes como invitado alcanzado. Por favor, /login o /registrar.");
@@ -19,7 +22,7 @@ public class Mensaje {
         } else if (mensaje.trim().isEmpty()) {
             remitente.enviarMensaje("Sistema: No puedes enviar un mensaje público vacío.");
         } else {
-            difundirMensajePublico(mensaje, remitente);
+            controladorGrupo.enviarMensajeGrupo(remitente.getGrupoActual(), mensaje, remitente);
             remitente.decrementarMensajeRestante();
         }
     }
@@ -38,27 +41,31 @@ public class Mensaje {
         String[] p = mensaje.split(" ");
         String cmd = p[0];
 
+        if (controladorGrupo.manejarComandoGrupo(cmd, p, cliente)) return;
+
         if (cmd.equals("/login") || cmd.equals("/registrar")) {
             if (p.length != 3) {
                 cliente.enviarMensaje("Sistema: Uso correcto: " + cmd + " usuario contrasena");
                 return;
             }
             String user = p[1], pass = p[2];
-
             String errorFormato = validarFormatoCredenciales(user, pass);
             if (errorFormato != null) {
                 cliente.enviarMensaje("Sistema: Error de formato. " + errorFormato);
                 return;
             }
-
             boolean exito = cmd.equals("/login")
                     ? BaseDatos.verificarCredenciales(user, pass)
                     : BaseDatos.registrarUsuario(user, pass);
             if (exito) {
                 if (!cliente.getNombreCliente().equals(user)) ServidorMulti.clientes.remove(cliente.getNombreCliente());
-
                 cliente.setRegistrado(user);
                 ServidorMulti.clientes.put(user, cliente);
+
+                if (cmd.equals("/login")) {
+                    BaseDatos.unirseAGrupo(user, "Todos");
+                }
+
                 String msg = (cmd.equals("/login")) ? "¡Login exitoso!" : "¡Registro exitoso!";
                 cliente.enviarMensaje("Sistema: " + msg + " Ahora eres un usuario registrado (" + user + ").");
             } else {
@@ -74,20 +81,16 @@ public class Mensaje {
                 cliente.enviarMensaje("Sistema: Uso correcto: " + cmd + " nombre_usuario");
                 return;
             }
-
             String remitente = cliente.getNombreCliente();
             String objetivo = p[1];
-
             if (objetivo.length() < 4 || !objetivo.matches("^[a-zA-Z0-9]+$")) {
                 cliente.enviarMensaje("Sistema: Error de formato. El nombre de usuario objetivo debe tener al menos 4 caracteres y solo contener letras y números.");
                 return;
             }
-
             if (objetivo.equals(remitente)) {
                 cliente.enviarMensaje("Sistema: No puedes bloquearte/desbloquearte a ti mismo.");
                 return;
             }
-
             if (cmd.equals("/bloquear")) {
                 if (Bloqueos.bloquearUsuario(remitente, objetivo)) {
                     cliente.enviarMensaje("Sistema: Has bloqueado a '" + objetivo + "'. Ya no recibirás sus mensajes públicos ni privados.");
@@ -118,15 +121,12 @@ public class Mensaje {
                 cliente.enviarMensaje("Sistema: Uso correcto: /vs usuario1 usuario2");
                 return;
             }
-
             String usuario1 = p[1];
             String usuario2 = p[2];
-
             if (usuario1.equals(usuario2)) {
                 cliente.enviarMensaje("Sistema VS: No puedes ver estadisticas Head-to-Head del mismo usuario.");
                 return;
             }
-
             servicioRanking.mostrarEstadisticasVsArbitrarias(cliente, usuario1, usuario2);
         }
         else {
@@ -145,7 +145,6 @@ public class Mensaje {
             String cmd = p[0];
             usuario = p[1];
             String pass = p[2];
-
             String errorFormato = validarFormatoCredenciales(usuario, pass);
             if (errorFormato != null) {
                 errorMsg = "Error de formato. " + errorFormato;
@@ -165,6 +164,11 @@ public class Mensaje {
 
         if (exito) {
             cliente.setRegistrado(usuario);
+
+            if (p.length == 3 && p[0].equals("/login")) {
+                BaseDatos.unirseAGrupo(usuario, "Todos");
+            }
+
             cliente.enviarMensaje("Sistema: OK_REGISTRADO ¡Login exitoso! Bienvenido de nuevo.");
             notificarATodos(usuario + " se ha unido al chat.", cliente);
         } else {

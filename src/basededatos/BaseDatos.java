@@ -1,5 +1,4 @@
 package basededatos;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -22,11 +21,17 @@ public class BaseDatos {
     public static final String TABLE_RANKING_GATO = "ranking_gato";
     public static final String TABLE_HISTORIAL_PARTIDAS_GATO = "historial_partidas_gato";
 
+    public static final String TABLE_GRUPOS = "grupos";
+    public static final String TABLE_MIEMBROS_GRUPO = "miembros_grupo";
+    public static final String TABLE_MENSAJES_GRUPO = "mensajes_grupo";
+    public static final String TABLE_ULTIMO_VISTO = "ultimo_visto";
+
 
     private static final Logger LOGGER = Logger.getLogger(BaseDatos.class.getName());
 
     static {
         initializeDatabase();
+        inicializarGrupos();
     }
 
     public static Connection getConnection() throws SQLException {
@@ -65,6 +70,37 @@ public class BaseDatos {
                 + " FOREIGN KEY (id_jugador2) REFERENCES " + TABLE_USUARIOS + "(id) ON DELETE CASCADE\n"
                 + ");";
 
+        String sqlGrupos = "CREATE TABLE IF NOT EXISTS " + TABLE_GRUPOS + " (\n"
+                + " id integer PRIMARY KEY AUTOINCREMENT,\n"
+                + " nombre text NOT NULL UNIQUE,\n"
+                + " id_creador integer,\n"
+                + " FOREIGN KEY (id_creador) REFERENCES " + TABLE_USUARIOS + "(id) ON DELETE SET NULL\n"
+                + ");";
+        String sqlMiembros = "CREATE TABLE IF NOT EXISTS " + TABLE_MIEMBROS_GRUPO + " (\n"
+                + " id_usuario integer NOT NULL,\n"
+                + " id_grupo integer NOT NULL,\n"
+                + " PRIMARY KEY (id_usuario, id_grupo),\n"
+                + " FOREIGN KEY (id_usuario) REFERENCES " + TABLE_USUARIOS + "(id) ON DELETE CASCADE,\n"
+                + " FOREIGN KEY (id_grupo) REFERENCES " + TABLE_GRUPOS + "(id) ON DELETE CASCADE\n"
+                + ");";
+        String sqlMensajes = "CREATE TABLE IF NOT EXISTS " + TABLE_MENSAJES_GRUPO + " (\n"
+                + " id integer PRIMARY KEY AUTOINCREMENT,\n"
+                + " id_grupo integer NOT NULL,\n"
+                + " id_remitente integer,\n"
+                + " contenido text NOT NULL,\n"
+                + " timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,\n"
+                + " FOREIGN KEY (id_grupo) REFERENCES " + TABLE_GRUPOS + "(id) ON DELETE CASCADE,\n"
+                + " FOREIGN KEY (id_remitente) REFERENCES " + TABLE_USUARIOS + "(id) ON DELETE SET NULL\n"
+                + ");";
+        String sqlUltimoVisto = "CREATE TABLE IF NOT EXISTS " + TABLE_ULTIMO_VISTO + " (\n"
+                + " id_usuario integer NOT NULL,\n"
+                + " id_grupo integer NOT NULL,\n"
+                + " id_ultimo_mensaje_visto integer NOT NULL DEFAULT 0,\n"
+                + " PRIMARY KEY (id_usuario, id_grupo),\n"
+                + " FOREIGN KEY (id_usuario) REFERENCES " + TABLE_USUARIOS + "(id) ON DELETE CASCADE,\n"
+                + " FOREIGN KEY (id_grupo) REFERENCES " + TABLE_GRUPOS + "(id) ON DELETE CASCADE\n"
+                + ");";
+
 
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
@@ -74,10 +110,42 @@ public class BaseDatos {
             stmt.execute(sqlRankingGato);
             stmt.execute(sqlHistorialGato);
 
-            System.out.println("Base de datos SQLite inicializada. Tablas 'usuarios', 'bloqueos', 'ranking_gato' e 'historial_partidas_gato' listas.");
+            stmt.execute(sqlGrupos);
+            stmt.execute(sqlMiembros);
+            stmt.execute(sqlMensajes);
+            stmt.execute(sqlUltimoVisto);
+
+
+            System.out.println("Base de datos SQLite inicializada. Tablas 'usuarios', 'bloqueos', 'ranking_gato', 'historial_partidas_gato' y tablas de grupos listas.");
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error al inicializar la base de datos.", e);
             System.err.println("¡ERROR FATAL! No se pudo inicializar la base de datos: " + e.getMessage());
+        }
+    }
+
+    public static void inicializarGrupos() {
+        try {
+            Integer idTodos = obtenerIdGrupo("Todos");
+            if (idTodos == null) {
+                crearGrupo("Todos", null);
+                idTodos = obtenerIdGrupo("Todos");
+            }
+            if (idTodos != null) {
+                actualizarMiembrosGrupoTodos(idTodos);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error al inicializar grupos.", e);
+        }
+    }
+
+    private static void actualizarMiembrosGrupoTodos(Integer idGrupo) throws SQLException {
+        String sqlUsuarios = "SELECT id FROM " + TABLE_USUARIOS;
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sqlUsuarios)) {
+            while (rs.next()) {
+                unirseAGrupo(rs.getInt("id"), idGrupo);
+            }
         }
     }
 
@@ -91,6 +159,126 @@ public class BaseDatos {
                 return rs.getInt("id");
             }
             return null;
+        }
+    }
+
+    private static Integer obtenerIdGrupo(String nombre) throws SQLException {
+        String sql = "SELECT id FROM " + TABLE_GRUPOS + " WHERE nombre = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, nombre);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("id");
+            }
+            return null;
+        }
+    }
+
+    public static boolean crearGrupo(String nombre, String usuarioCreador) {
+        String sql = "INSERT INTO " + TABLE_GRUPOS + " (nombre, id_creador) VALUES (?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            Integer idCreador = obtenerIdUsuario(usuarioCreador);
+            pstmt.setString(1, nombre);
+            pstmt.setObject(2, idCreador);
+            pstmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 19) {
+                return false;
+            }
+            LOGGER.log(Level.SEVERE, "Error al crear el grupo: " + nombre, e);
+            return false;
+        }
+    }
+
+    private static void unirseAGrupo(Integer idUsuario, Integer idGrupo) throws SQLException {
+        String sql = "INSERT OR IGNORE INTO " + TABLE_MIEMBROS_GRUPO + " (id_usuario, id_grupo) VALUES (?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUsuario);
+            pstmt.setInt(2, idGrupo);
+            pstmt.executeUpdate();
+            // Lógica de último visto se añade en Commit 3
+        }
+    }
+
+    public static boolean unirseAGrupo(String usuario, String grupo) {
+        try {
+            Integer idUsuario = obtenerIdUsuario(usuario);
+            Integer idGrupo = obtenerIdGrupo(grupo);
+            if (idUsuario == null || idGrupo == null) {
+                return false;
+            }
+            unirseAGrupo(idUsuario, idGrupo);
+            return true;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error al unir usuario al grupo.", e);
+            return false;
+        }
+    }
+
+    private static void salirDeGrupo(Integer idUsuario, Integer idGrupo) throws SQLException {
+        String sql = "DELETE FROM " + TABLE_MIEMBROS_GRUPO + " WHERE id_usuario = ? AND id_grupo = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idUsuario);
+            pstmt.setInt(2, idGrupo);
+            pstmt.executeUpdate();
+        }
+    }
+
+    public static boolean salirDeGrupo(String usuario, String grupo) {
+        try {
+            Integer idUsuario = obtenerIdUsuario(usuario);
+            Integer idGrupo = obtenerIdGrupo(grupo);
+            if (idUsuario == null || idGrupo == null) {
+                return false;
+            }
+            salirDeGrupo(idUsuario, idGrupo);
+            return true;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error al salir usuario del grupo.", e);
+            return false;
+        }
+    }
+
+    private static boolean validarCreadorYEliminar(Integer idGrupo, Integer idCreador) throws SQLException {
+        String sql = "DELETE FROM " + TABLE_GRUPOS + " WHERE id = ? AND id_creador = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idGrupo);
+            pstmt.setInt(2, idCreador);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    public static boolean eliminarGrupo(String nombre, String usuario) {
+        try {
+            Integer idGrupo = obtenerIdGrupo(nombre);
+            Integer idUsuario = obtenerIdUsuario(usuario);
+            if (idGrupo == null || idUsuario == null) {
+                return false;
+            }
+            return validarCreadorYEliminar(idGrupo, idUsuario);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error al eliminar grupo.", e);
+            return false;
+        }
+    }
+
+    public static boolean esMiembroDeGrupo(String usuario, String grupo) {
+        String sql = "SELECT 1 FROM " + TABLE_MIEMBROS_GRUPO + " m JOIN " + TABLE_USUARIOS + " u ON m.id_usuario = u.id JOIN " + TABLE_GRUPOS + " g ON m.id_grupo = g.id WHERE u.usuario = ? AND g.nombre = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, usuario);
+            pstmt.setString(2, grupo);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error al verificar membresía de grupo.", e);
+            return false;
         }
     }
 
@@ -247,6 +435,9 @@ public class BaseDatos {
             pstmt.setString(2, contrasena);
 
             pstmt.executeUpdate();
+
+            unirseAGrupo(usuario, "Todos");
+
             return true;
         } catch (SQLException e) {
             if (e.getErrorCode() == 19) {
