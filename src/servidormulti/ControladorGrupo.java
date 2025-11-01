@@ -3,6 +3,7 @@ package servidormulti;
 import basededatos.BaseDatos;
 import java.io.IOException;
 import java.util.List;
+import java.sql.SQLException;
 
 public class ControladorGrupo {
 
@@ -47,6 +48,21 @@ public class ControladorGrupo {
         cliente.enviarMensaje(mensaje);
     }
 
+    private void notificarCreador(String grupo, String usuarioUnido) throws IOException {
+        try {
+            String creador = BaseDatos.obtenerCreadorGrupo(grupo);
+            if (creador != null && !creador.equals(usuarioUnido)) {
+                UnCliente clienteCreador = ServidorMulti.clientes.get(creador);
+                if (clienteCreador != null) {
+                    clienteCreador.enviarMensaje("Sistema: NOTIFICACION: El usuario '" + usuarioUnido + "' se ha unido a tu grupo '" + grupo + "'.");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al intentar obtener o notificar al creador del grupo: " + e.getMessage());
+        }
+    }
+
+
     private boolean cambiarGrupo(String[] p, UnCliente cliente) throws IOException {
         if (!validarArgumentos(p, 2, "/grupo")) return enviarErrorUso(cliente, "/grupo nombre_grupo");
 
@@ -71,6 +87,8 @@ public class ControladorGrupo {
             BaseDatos.unirseAGrupo(cliente.getNombreCliente(), nombreGrupo);
             cliente.setGrupoActual(nombreGrupo);
             cliente.enviarMensaje("Sistema: Grupo '" + nombreGrupo + "' creado y te has unido.");
+
+            notificarCreador(nombreGrupo, cliente.getNombreCliente());
         } else {
             cliente.enviarMensaje("Sistema: El grupo '" + nombreGrupo + "' ya existe o nombre inválido.");
         }
@@ -93,7 +111,6 @@ public class ControladorGrupo {
         if (BaseDatos.eliminarGrupo(nombreGrupo, cliente.getNombreCliente())) {
 
             cliente.enviarMensaje("Sistema: Grupo '" + nombreGrupo + "' eliminado correctamente.");
-
 
             for (UnCliente c : ServidorMulti.clientes.values()) {
                 if (c.getGrupoActual().equals(nombreGrupo)) {
@@ -124,6 +141,8 @@ public class ControladorGrupo {
             cliente.setGrupoActual(grupo);
             cliente.enviarMensaje("Sistema: Te has unido al grupo '" + grupo + "'.");
             enviarMensajesPendientes(cliente, grupo);
+
+            notificarCreador(grupo, cliente.getNombreCliente());
         } else {
             cliente.enviarMensaje("Sistema: Error al unirse. El grupo no existe o ya eres miembro.");
         }

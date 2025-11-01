@@ -58,7 +58,7 @@ public class BaseDatos {
                 + " puntos integer NOT NULL DEFAULT 0,\n"
                 + " victorias integer NOT NULL DEFAULT 0,\n"
                 + " derrotas integer NOT NULL DEFAULT 0,\n"
-                + " empates integer integer NOT NULL DEFAULT 0,\n"
+                + " empates integer NOT NULL DEFAULT 0,\n"
                 + " FOREIGN KEY (id_usuario) REFERENCES " + TABLE_USUARIOS + "(id) ON DELETE CASCADE\n"
                 + ");";
 
@@ -176,6 +176,19 @@ public class BaseDatos {
         }
     }
 
+    public static String obtenerCreadorGrupo(String nombreGrupo) throws SQLException {
+        String sql = "SELECT u.usuario FROM " + TABLE_GRUPOS + " g JOIN " + TABLE_USUARIOS + " u ON g.id_creador = u.id WHERE g.nombre = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, nombreGrupo);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("usuario");
+            }
+            return null;
+        }
+    }
+
     public static boolean crearGrupo(String nombre, String usuarioCreador) {
         String sql = "INSERT INTO " + TABLE_GRUPOS + " (nombre, id_creador) VALUES (?, ?)";
         try (Connection conn = getConnection();
@@ -194,14 +207,19 @@ public class BaseDatos {
         }
     }
 
-    private static void unirseAGrupo(Integer idUsuario, Integer idGrupo) throws SQLException {
+    private static boolean unirseAGrupo(Integer idUsuario, Integer idGrupo) throws SQLException {
         String sql = "INSERT OR IGNORE INTO " + TABLE_MIEMBROS_GRUPO + " (id_usuario, id_grupo) VALUES (?, ?)";
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, idUsuario);
             pstmt.setInt(2, idGrupo);
-            pstmt.executeUpdate();
-            actualizarUltimoVisto(idUsuario, idGrupo, 0);
+            int rowsAffected = pstmt.executeUpdate();
+
+            if (rowsAffected > 0) {
+                actualizarUltimoVisto(idUsuario, idGrupo, 0);
+                return true;
+            }
+            return false;
         }
     }
 
@@ -212,8 +230,7 @@ public class BaseDatos {
             if (idUsuario == null || idGrupo == null) {
                 return false;
             }
-            unirseAGrupo(idUsuario, idGrupo);
-            return true;
+            return unirseAGrupo(idUsuario, idGrupo);
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Error al unir usuario al grupo.", e);
             return false;
