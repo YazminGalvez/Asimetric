@@ -2,7 +2,7 @@ package juego;
 import servidormulti.UnCliente;
 import java.io.IOException;
 import java.util.Random;
-import basededatos.BaseDatos;
+import basededatos.BdJuegos;
 
 public class JuegoGato {
     public enum EstadoCasilla { VACIO, X, O }
@@ -160,7 +160,7 @@ public class JuegoGato {
 
         String ganador = determinarGanadorRegistrado();
 
-        BaseDatos.registrarResultadoGato(
+        BdJuegos.registrarResultadoGato(
                 jugadorX.getNombreCliente(),
                 jugadorO.getNombreCliente(),
                 ganador
@@ -279,7 +279,7 @@ public class JuegoGato {
 
     private void registrarAbandono(UnCliente ganador, UnCliente perdedor) {
         if (ganador.isRegistrado() && perdedor.isRegistrado()) {
-            BaseDatos.registrarResultadoGato(
+            BdJuegos.registrarResultadoGato(
                     ganador.getNombreCliente(),
                     perdedor.getNombreCliente(),
                     ganador.getNombreCliente()

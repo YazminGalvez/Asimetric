@@ -1,6 +1,6 @@
 package mensaje;
-
-import basededatos.BaseDatos;
+import basededatos.BdUsuario;
+import basededatos.BdGrupos;
 import servidormulti.Bloqueos;
 import servidormulti.ControladorGrupo;
 import servidormulti.ServicioRanking;
@@ -59,8 +59,8 @@ public class ControladorComandos {
 
     private void ejecutarAutenticacion(String user, String pass, String cmd, UnCliente cliente) throws IOException {
         boolean exito = cmd.equals("/login")
-                ? BaseDatos.verificarCredenciales(user, pass)
-                : BaseDatos.registrarUsuario(user, pass);
+                ? BdUsuario.verificarCredenciales(user, pass)
+                : BdUsuario.registrarUsuario(user, pass);
         if (exito) {
             manejarExitoAutenticacion(user, cmd, cliente);
         } else {
@@ -72,7 +72,7 @@ public class ControladorComandos {
         if (!cliente.getNombreCliente().equals(user)) ServidorMulti.clientes.remove(cliente.getNombreCliente());
         cliente.setRegistrado(user);
         ServidorMulti.clientes.put(user, cliente);
-        if (cmd.equals("/login")) BaseDatos.unirseAGrupo(user, "Todos");
+        if (cmd.equals("/login")) BdGrupos.unirseAGrupo(user, "Todos");
         String msg = (cmd.equals("/login")) ? "¡Login exitoso!" : "¡Registro exitoso!";
         cliente.enviarMensaje("Sistema: " + msg + " Ahora eres un usuario registrado (" + user + ").");
     }
@@ -174,7 +174,7 @@ public class ControladorComandos {
     }
 
     private ResultadoInicial intentarLoginInicial(String usuario, String pass) {
-        boolean exito = BaseDatos.verificarCredenciales(usuario, pass);
+        boolean exito = BdUsuario.verificarCredenciales(usuario, pass);
         if (exito) return new ResultadoInicial(true, usuario, null);
 
         String errorMsg = "Error de login. Credenciales invalidas para: " + usuario;
@@ -182,7 +182,7 @@ public class ControladorComandos {
     }
 
     private ResultadoInicial intentarRegistroInicial(String usuario, String pass) {
-        boolean exito = BaseDatos.registrarUsuario(usuario, pass);
+        boolean exito = BdUsuario.registrarUsuario(usuario, pass);
         if (exito) return new ResultadoInicial(true, usuario, null);
 
         String errorMsg = "Error de registro. El usuario " + usuario + " ya existe.";

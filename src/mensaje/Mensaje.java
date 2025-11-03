@@ -1,4 +1,5 @@
 package mensaje ;
+import basededatos.BdGrupos;
 import servidormulti.ServidorMulti;
 import servidormulti.UnCliente;
 import basededatos.BaseDatos;
@@ -54,7 +55,7 @@ public class Mensaje {
     private static void manejarInicioSesionExitoso(UnCliente cliente, String usuario, String[] p) throws IOException {
         cliente.setRegistrado(usuario);
         if (p.length == 3 && p[0].equals("/login")) {
-            BaseDatos.unirseAGrupo(usuario, "Todos");
+            BdGrupos.unirseAGrupo(usuario, "Todos");
         }
         cliente.enviarMensaje("Sistema: OK_REGISTRADO ¡Login exitoso! Bienvenido de nuevo.");
         notificarATodos(usuario + " se ha unido al chat.", cliente);

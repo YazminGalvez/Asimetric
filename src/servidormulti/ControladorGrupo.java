@@ -1,6 +1,6 @@
 package servidormulti;
 
-import basededatos.BaseDatos;
+import basededatos.BdGrupos;
 import java.io.IOException;
 import java.util.List;
 import java.sql.SQLException;
@@ -22,7 +22,7 @@ public class ControladorGrupo {
         String nombreRemitente = remitente.getNombreCliente();
         String msgFormateado = nombreRemitente + " [" + grupo + "]: " + mensaje;
 
-        long nuevoId = BaseDatos.guardarMensajeGrupo(grupo, nombreRemitente, mensaje);
+        long nuevoId = BdGrupos.guardarMensajeGrupo(grupo, nombreRemitente, mensaje);
 
         if (nuevoId > 0) {
             difundirMensajeGrupo(grupo, msgFormateado, remitente);
@@ -50,7 +50,7 @@ public class ControladorGrupo {
 
     private void notificarCreador(String grupo, String usuarioUnido) throws IOException {
         try {
-            String creador = BaseDatos.obtenerCreadorGrupo(grupo);
+            String creador = BdGrupos.obtenerCreadorGrupo(grupo);
             if (creador != null && !creador.equals(usuarioUnido)) {
                 UnCliente clienteCreador = ServidorMulti.clientes.get(creador);
                 if (clienteCreador != null) {
@@ -67,7 +67,7 @@ public class ControladorGrupo {
         if (!validarArgumentos(p, 2, "/grupo")) return enviarErrorUso(cliente, "/grupo nombre_grupo");
 
         String nuevoGrupo = p[1];
-        if (!BaseDatos.esMiembroDeGrupo(cliente.getNombreCliente(), nuevoGrupo)) {
+        if (!BdGrupos.esMiembroDeGrupo(cliente.getNombreCliente(), nuevoGrupo)) {
             cliente.enviarMensaje("Sistema: No eres miembro del grupo '" + nuevoGrupo + "'. Usa /unir.");
             return true;
         }
@@ -83,11 +83,14 @@ public class ControladorGrupo {
             return enviarErrorUso(cliente, "Debes ser registrado. Uso: /crear nombre_grupo");
         }
         String nombreGrupo = p[1];
-        if (BaseDatos.crearGrupo(nombreGrupo, cliente.getNombreCliente())) {
-            BaseDatos.unirseAGrupo(cliente.getNombreCliente(), nombreGrupo);
+        return procesarCreacion(cliente, nombreGrupo);
+    }
+
+    private boolean procesarCreacion(UnCliente cliente, String nombreGrupo) throws IOException {
+        if (BdGrupos.crearGrupo(nombreGrupo, cliente.getNombreCliente())) {
+            BdGrupos.unirseAGrupo(cliente.getNombreCliente(), nombreGrupo);
             cliente.setGrupoActual(nombreGrupo);
             cliente.enviarMensaje("Sistema: Grupo '" + nombreGrupo + "' creado y te has unido.");
-
             notificarCreador(nombreGrupo, cliente.getNombreCliente());
         } else {
             cliente.enviarMensaje("Sistema: El grupo '" + nombreGrupo + "' ya existe o nombre inválido.");
@@ -108,22 +111,24 @@ public class ControladorGrupo {
     }
 
     private boolean procesarBorrado(UnCliente cliente, String nombreGrupo) throws IOException {
-        if (BaseDatos.eliminarGrupo(nombreGrupo, cliente.getNombreCliente())) {
-
+        if (BdGrupos.eliminarGrupo(nombreGrupo, cliente.getNombreCliente())) {
             cliente.enviarMensaje("Sistema: Grupo '" + nombreGrupo + "' eliminado correctamente.");
-
-            for (UnCliente c : ServidorMulti.clientes.values()) {
-                if (c.getGrupoActual().equals(nombreGrupo)) {
-                    c.setGrupoActual("Todos");
-                    if (c != cliente) {
-                        c.enviarMensaje("Sistema: El grupo '" + nombreGrupo + "' ha sido eliminado por el creador. Has sido movido a 'Todos'.");
-                    }
-                }
-            }
+            moverUsuariosBorrado(cliente, nombreGrupo);
         } else {
             cliente.enviarMensaje("Sistema: Error al borrar. No existe, o no eres el creador.");
         }
         return true;
+    }
+
+    private void moverUsuariosBorrado(UnCliente clienteEliminador, String nombreGrupo) throws IOException {
+        for (UnCliente c : ServidorMulti.clientes.values()) {
+            if (c.getGrupoActual().equals(nombreGrupo)) {
+                c.setGrupoActual("Todos");
+                if (c != clienteEliminador) {
+                    c.enviarMensaje("Sistema: El grupo '" + nombreGrupo + "' ha sido eliminado por el creador. Has sido movido a 'Todos'.");
+                }
+            }
+        }
     }
 
     private boolean unirAGrupo(String[] p, UnCliente cliente) throws IOException {
@@ -137,11 +142,10 @@ public class ControladorGrupo {
     }
 
     private boolean procesarUnion(UnCliente cliente, String grupo) throws IOException {
-        if (BaseDatos.unirseAGrupo(cliente.getNombreCliente(), grupo)) {
+        if (BdGrupos.unirseAGrupo(cliente.getNombreCliente(), grupo)) {
             cliente.setGrupoActual(grupo);
             cliente.enviarMensaje("Sistema: Te has unido al grupo '" + grupo + "'.");
             enviarMensajesPendientes(cliente, grupo);
-
             notificarCreador(grupo, cliente.getNombreCliente());
         } else {
             cliente.enviarMensaje("Sistema: Error al unirse. El grupo no existe o ya eres miembro.");
@@ -160,7 +164,7 @@ public class ControladorGrupo {
     }
 
     private boolean procesarSalida(UnCliente cliente, String grupo) throws IOException {
-        if (BaseDatos.salirDeGrupo(cliente.getNombreCliente(), grupo)) {
+        if (BdGrupos.salirDeGrupo(cliente.getNombreCliente(), grupo)) {
             cliente.enviarMensaje("Sistema: Has salido del grupo '" + grupo + "'.");
             if (cliente.getGrupoActual().equals(grupo)) {
                 cliente.setGrupoActual("Todos");
@@ -172,7 +176,7 @@ public class ControladorGrupo {
     }
 
     private void enviarMensajesPendientes(UnCliente cliente, String grupo) throws IOException {
-        List<String> mensajes = BaseDatos.obtenerMensajesNoVistos(cliente.getNombreCliente(), grupo);
+        List<String> mensajes = BdGrupos.obtenerMensajesNoVistos(cliente.getNombreCliente(), grupo);
 
         if (mensajes.isEmpty()) {
             cliente.enviarMensaje("Sistema: No hay mensajes nuevos en '" + grupo + "'.");
@@ -180,6 +184,10 @@ public class ControladorGrupo {
         }
 
         cliente.enviarMensaje("Sistema: Mensajes nuevos en '" + grupo + "':");
+        enviarMensajes(cliente, mensajes);
+    }
+
+    private void enviarMensajes(UnCliente cliente, List<String> mensajes) throws IOException {
         for (String msg : mensajes) {
             cliente.enviarMensaje(msg);
         }
