@@ -96,6 +96,7 @@ public class UnCliente implements Runnable {
             enviarMensaje("Sistema: Comandos de Grupo:");
             enviarMensaje("Sistema: - Unirse/Cambiar: /grupo <nombre>");
             enviarMensaje("Sistema: - Unirse: /unir <nombre>");
+            enviarMensaje("Sistema: - Salir de Grupo: /salir <nombre_grupo>"); // Línea añadida
             enviarMensaje("Sistema: - Crear/Borrar: /crear <nombre>, /borrar <nombre> (solo creador)");
 
 
