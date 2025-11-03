@@ -15,14 +15,23 @@ public class ControladorMensajes {
     }
 
     public void procesar(String mensaje, UnCliente remitente) throws IOException {
+        if (remitente.tienePropuestaJuegoPendiente()) {
+            remitente.enviarMensaje("Sistema Gato: Tienes una propuesta de juego pendiente. Debes usar 'acepto/rechazo <usuario>' o un comando.");
+            return;
+        }
+
         if (mensaje.startsWith("@")) {
             if (enviarMensajePrivado(mensaje, remitente)) remitente.decrementarMensajeRestante();
         } else if (mensaje.trim().isEmpty()) {
             remitente.enviarMensaje("Sistema: No puedes enviar un mensaje público vacío.");
         } else {
-            controladorGrupo.enviarMensajeGrupo(remitente.getGrupoActual(), mensaje, remitente);
-            remitente.decrementarMensajeRestante();
+            procesarMensajePublico(mensaje, remitente);
         }
+    }
+
+    private void procesarMensajePublico(String mensaje, UnCliente remitente) throws IOException {
+        controladorGrupo.enviarMensajeGrupo(remitente.getGrupoActual(), mensaje, remitente);
+        remitente.decrementarMensajeRestante();
     }
 
     public boolean enviarMensajePrivado(String mensaje, UnCliente remitente) throws IOException {

@@ -235,6 +235,10 @@ public class JuegoGato {
             notificarRevancha(clienteQueMovio, oponente);
         }
 
+
+        if (jugadorX != null) jugadorX.setPropuestaJuegoPendiente(true);
+        if (jugadorO != null) jugadorO.setPropuestaJuegoPendiente(true);
+
         registrarResultadoFinal();
     }
 
@@ -274,6 +278,7 @@ public class JuegoGato {
         if (oponente != null) {
             oponente.enviarMensaje("Sistema Gato: ¡" + desconectado.getNombreCliente() + " se ha desconectado! Has ganado automaticamente el juego. La partida ha finalizado.");
             registrarAbandono(oponente, desconectado);
+            oponente.setPropuestaJuegoPendiente(false);
         }
     }
 
