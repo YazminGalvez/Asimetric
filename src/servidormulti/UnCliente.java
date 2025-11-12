@@ -125,6 +125,14 @@ public class UnCliente implements Runnable {
         while (true) {
             String mensaje = entrada.readUTF();
 
+            if (!isRegistrado()) {
+                if (!puedeEnviarMensaje()) {
+                    enviarMensaje("Sistema: Como invitado, has agotado tu limite de mensajes. Por favor, registrate o inicia sesion.");
+                    continue;
+                }
+                decrementarMensajeRestante();
+            }
+
             if (esComandoDeJuego(mensaje)) {
                 manejarComandoDeJuego(mensaje);
             } else if (esMensajeBloqueado(mensaje)) {
