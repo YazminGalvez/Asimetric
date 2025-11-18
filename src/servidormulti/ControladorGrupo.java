@@ -29,7 +29,6 @@ public class ControladorGrupo {
         } else {
             remitente.enviarMensaje("Sistema: Error al guardar y enviar el mensaje.");
         }
-        remitente.enviarMensaje(msgFormateado);
     }
 
     private void difundirMensajeGrupo(String grupo, String mensajeCompleto, UnCliente remitente) throws IOException {
