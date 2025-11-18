@@ -10,6 +10,10 @@ import java.io.IOException;
 
 public class ControladorComandos {
 
+    private static final java.util.Set<String> COMANDOS_PROHIBIDOS = java.util.Set.of(
+            "login", "registrar", "bloquear", "desbloquear", "ranking", "vs", "gato"
+    );
+
     private final ServicioRanking servicioRanking;
     private final ControladorGrupo controladorGrupo;
 
@@ -189,12 +193,23 @@ public class ControladorComandos {
         return new ResultadoInicial(false, "", errorMsg);
     }
 
+    private static String validarNombreUsuarioProhibido(String user) {
+        if (COMANDOS_PROHIBIDOS.contains(user.toLowerCase())) {
+            return "El nombre de usuario no puede ser una palabra reservada o un comando del sistema.";
+        }
+        return null;
+    }
+
     private static String validarFormatoCredenciales(String user, String pass) {
         if (user == null || pass == null || user.length() < 4 || pass.length() < 4) {
             return "El nombre de usuario y la contraseña deben tener al menos 4 caracteres.";
         }
         if (!user.matches("^[a-zA-Z0-9]+$")) {
             return "El nombre de usuario solo debe contener letras y números.";
+        }
+        String errorComando = validarNombreUsuarioProhibido(user);
+        if (errorComando != null) {
+            return errorComando;
         }
         return null;
     }
