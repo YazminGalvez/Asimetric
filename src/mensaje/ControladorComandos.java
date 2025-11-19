@@ -7,12 +7,9 @@ import servidormulti.ServicioRanking;
 import servidormulti.ServidorMulti;
 import servidormulti.UnCliente;
 import java.io.IOException;
+import java.util.Map;
 
 public class ControladorComandos {
-
-    private static final java.util.Set<String> COMANDOS_PROHIBIDOS = java.util.Set.of(
-            "login", "registrar", "bloquear", "desbloquear", "ranking", "vs", "gato"
-    );
 
     private final ServicioRanking servicioRanking;
     private final ControladorGrupo controladorGrupo;
@@ -62,9 +59,18 @@ public class ControladorComandos {
     }
 
     private void ejecutarAutenticacion(String user, String pass, String cmd, UnCliente cliente) throws IOException {
+        if (cmd.equals("/login")) {
+            boolean yaConectado = ServidorMulti.clientes.containsKey(user);
+            if (yaConectado && !cliente.getNombreCliente().equals(user)) {
+                cliente.enviarMensaje("Sistema: Acceso denegado. El usuario '" + user + "' ya esta conectado. Por favor, intenta con otro usuario o cierra la otra sesion.");
+                return;
+            }
+        }
+
         boolean exito = cmd.equals("/login")
                 ? BdUsuario.verificarCredenciales(user, pass)
                 : BdUsuario.registrarUsuario(user, pass);
+
         if (exito) {
             manejarExitoAutenticacion(user, cmd, cliente);
         } else {
@@ -73,17 +79,21 @@ public class ControladorComandos {
     }
 
     private void manejarExitoAutenticacion(String user, String cmd, UnCliente cliente) throws IOException {
-        if (!cliente.getNombreCliente().equals(user)) ServidorMulti.clientes.remove(cliente.getNombreCliente());
+        if (!cliente.getNombreCliente().equals(user)) {
+            ServidorMulti.clientes.remove(cliente.getNombreCliente());
+        }
         cliente.setRegistrado(user);
         ServidorMulti.clientes.put(user, cliente);
+
         if (cmd.equals("/login")) BdGrupos.unirseAGrupo(user, "Todos");
+
         String msg = (cmd.equals("/login")) ? "¡Login exitoso!" : "¡Registro exitoso!";
         cliente.enviarMensaje("Sistema: " + msg + " Ahora eres un usuario registrado (" + user + ").");
     }
 
     private void manejarFalloAutenticacion(String cmd, UnCliente cliente) throws IOException {
         String errorMsg = (cmd.equals("/login")) ? "Error de login. Credenciales inválidas." : "Error de registro. El usuario ya existe.";
-        cliente.enviarMensaje("Sistema: " + errorMsg);
+        cliente.enviarMensaje("Sistema: " + errorMsg + " Inténtalo de nuevo.");
     }
 
     private boolean manejarBloqueoDesbloqueo(String[] p, UnCliente cliente, String cmd) throws IOException {
@@ -178,6 +188,11 @@ public class ControladorComandos {
     }
 
     private ResultadoInicial intentarLoginInicial(String usuario, String pass) {
+
+        if (ServidorMulti.clientes.containsKey(usuario)) {
+            return new ResultadoInicial(false, "", "Acceso denegado. El usuario '" + usuario + "' ya esta conectado. Por favor, intenta con otro.");
+        }
+
         boolean exito = BdUsuario.verificarCredenciales(usuario, pass);
         if (exito) return new ResultadoInicial(true, usuario, null);
 
@@ -193,23 +208,12 @@ public class ControladorComandos {
         return new ResultadoInicial(false, "", errorMsg);
     }
 
-    private static String validarNombreUsuarioProhibido(String user) {
-        if (COMANDOS_PROHIBIDOS.contains(user.toLowerCase())) {
-            return "El nombre de usuario no puede ser una palabra reservada o un comando del sistema.";
-        }
-        return null;
-    }
-
     private static String validarFormatoCredenciales(String user, String pass) {
         if (user == null || pass == null || user.length() < 4 || pass.length() < 4) {
             return "El nombre de usuario y la contraseña deben tener al menos 4 caracteres.";
         }
         if (!user.matches("^[a-zA-Z0-9]+$")) {
             return "El nombre de usuario solo debe contener letras y números.";
-        }
-        String errorComando = validarNombreUsuarioProhibido(user);
-        if (errorComando != null) {
-            return errorComando;
         }
         return null;
     }

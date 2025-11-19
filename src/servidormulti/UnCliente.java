@@ -49,8 +49,14 @@ public class UnCliente implements Runnable {
         this.registrado = true;
         this.nombreCliente = nombre;
     }
-    public void setNombre(String nombre) { this.nombreCliente = nombre; }
-    public void setStatusRegistro(boolean estado) { this.registrado = estado; }
+
+    public void setNombre(String nombre) {
+        this.nombreCliente = nombre;
+    }
+
+    public void setStatusRegistro(boolean estado) {
+        this.registrado = estado;
+    }
 
     public boolean isRegistrado() {
         return registrado;
@@ -81,7 +87,6 @@ public class UnCliente implements Runnable {
     public void run() {
         try {
             iniciarLatidoCardiaco();
-
             procesarConexionInicial();
             mostrarMenuComandos();
             procesarMensajesDelCliente();
@@ -123,24 +128,42 @@ public class UnCliente implements Runnable {
         }
         ServidorMulti.desconectarCliente(this);
 
-        try { entrada.close(); } catch(Exception e){}
-        try { salida.close(); } catch(Exception e){}
+        try { entrada.close(); } catch (Exception e) {}
+        try { salida.close(); } catch (Exception e) {}
     }
 
     private void procesarConexionInicial() throws IOException {
-        String primerMensaje = entrada.readUTF();
+        boolean identificado = false;
 
-        if (primerMensaje.startsWith("/login") || primerMensaje.startsWith("/registrar")) {
-            Mensaje.procesarComandoInicial(primerMensaje, this);
-        } else {
-            this.nombreCliente = "Invitado-" + primerMensaje;
-            Mensaje.notificarATodos(nombreCliente + " (Invitado) se ha unido al chat.", this);
+        while (!identificado) {
+            String mensaje = entrada.readUTF();
+
+            if (mensaje.equals("/ping")) continue;
+
+            if (mensaje.startsWith("/")) {
+                if (mensaje.startsWith("/login") || mensaje.startsWith("/registrar")) {
+                    boolean exito = Mensaje.procesarComandoInicial(mensaje, this);
+                    if (exito) {
+                        identificado = true;
+                    }
+                } else {
+                    enviarMensaje("Sistema: Comando no reconocido en el inicio. Usa /login o /registrar.");
+                }
+            } else {
+                if (mensaje.contains("/")) {
+                    enviarMensaje("Sistema: El nombre de invitado no puede contener el caracter '/'. Intenta de nuevo.");
+                } else {
+                    this.nombreCliente = "Invitado-" + mensaje;
+                    Mensaje.notificarATodos(nombreCliente + " (Invitado) se ha unido al chat.", this);
+                    identificado = true;
+                }
+            }
         }
-
         ServidorMulti.clientes.put(nombreCliente, this);
     }
 
     private void mostrarMenuComandos() throws IOException {
+        enviarMensaje("Sistema: Bienvenido al Chat Asimétrico.");
         enviarMensaje("Sistema: Juega al Gato (solo usuarios registrados):");
         enviarMensaje("Sistema: - Proponer juego: /gato <usuario>");
         enviarMensaje("Sistema: - Responder propuesta: acepto <usuario> o rechazo <usuario>");
@@ -163,7 +186,7 @@ public class UnCliente implements Runnable {
 
             if (!isRegistrado()) {
                 if (!puedeEnviarMensaje()) {
-                    enviarMensaje("Sistema: Como invitado, has agotado tu limite de mensajes. Por favor, registrate o inicia sesion.");
+                    enviarMensaje("Sistema: Límite de mensajes alcanzado.");
                     continue;
                 }
                 decrementarMensajeRestante();
@@ -189,13 +212,13 @@ public class UnCliente implements Runnable {
         if (isRegistrado()) {
             controladorJuego.manejarComando(mensaje, this);
         } else {
-            enviarMensaje("Sistema Gato: Debes estar registrado y logueado para jugar al Gato.");
+            enviarMensaje("Sistema Gato: Debes estar registrado.");
         }
     }
 
     private boolean esMensajeBloqueado(String mensaje) throws IOException {
         if (estaEnPartida() && !mensaje.equalsIgnoreCase("/exit")) {
-            enviarMensaje("Sistema: Estas en una partida de Gato. Solo se permite chat simple con el oponente o el comando mover.");
+            enviarMensaje("Sistema: Estas en partida. Usa comandos.");
             return true;
         }
         return false;

@@ -1,8 +1,8 @@
-package mensaje ;
+package mensaje;
+
 import basededatos.BdGrupos;
 import servidormulti.ServidorMulti;
 import servidormulti.UnCliente;
-import basededatos.BaseDatos;
 import servidormulti.ServicioRanking;
 import servidormulti.ControladorGrupo;
 import java.io.IOException;
@@ -35,16 +35,18 @@ public class Mensaje {
         }
     }
 
-    public static void procesarComandoInicial(String mensaje, UnCliente cliente) throws IOException {
-        String temp = "Invitado-Temporal";
+    public static boolean procesarComandoInicial(String mensaje, UnCliente cliente) throws IOException {
         String[] p = mensaje.split(" ");
 
         ControladorComandos.ResultadoInicial res = procesador.procesarComandoInicial(p);
 
         if (res.isExito()) {
             manejarInicioSesionExitoso(cliente, res.getUsuario(), p);
+            return true;
         } else {
-            manejarInicioSesionFallido(cliente, temp, res.getErrorMsg());
+
+            cliente.enviarMensaje("Sistema: " + res.getErrorMsg() + " Vuelve a intentarlo.");
+            return false;
         }
     }
 
@@ -59,14 +61,6 @@ public class Mensaje {
         }
         cliente.enviarMensaje("Sistema: OK_REGISTRADO ¡Login exitoso! Bienvenido de nuevo.");
         notificarATodos(usuario + " se ha unido al chat.", cliente);
-    }
-
-    private static void manejarInicioSesionFallido(UnCliente cliente, String temp, String errorMsg) throws IOException {
-        cliente.enviarMensaje("Sistema: " + errorMsg + " Entrarás como invitado temporal.");
-        cliente.setStatusRegistro(false);
-        cliente.setNombre(temp);
-        enviarMensajeUnico(cliente, "Sistema: OK_INVITADO Has entrado como invitado. (Límite: 3 mensajes)");
-        notificarATodos(temp + " (Temporal) se ha unido al chat.", cliente);
     }
 
     public static void notificarATodos(String notificacion, UnCliente clienteExcluido) {
