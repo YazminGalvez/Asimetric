@@ -1,5 +1,6 @@
 package clientemulti;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.Scanner;
@@ -17,15 +18,7 @@ public class ClienteMulti {
     }
 
     public static void main(String[] args) throws IOException {
-        Socket s = null;
-        try {
-            s = new Socket("localhost", 8080);
-        } catch (IOException e) {
-            System.err.println("\n*** ERROR CRÍTICO: No se pudo conectar con el servidor (localhost:8080). ***");
-            System.err.println("Asegúrese de que el servidor esté en funcionamiento y accesible.");
-            return;
-        }
-
+        Socket s = new Socket("192.168.1.184", 8080);
 
         System.out.println("Opciones de inicio:");
         System.out.println("1. Entrar como invitado (3 mensajes limitados)");
@@ -57,10 +50,9 @@ public class ClienteMulti {
                     continue;
                 }
             } else if (entradaInicial.startsWith("/")) {
-                System.out.println("Sistema (Cliente): Comando inicial inválido. Solo se acepta /login o /registrar. Si deseas usar /yaz, escríbelo sin la barra inicial como nombre de invitado.");
+                System.out.println("Sistema (Cliente): Comando inicial inválido. Solo se acepta /login o /registrar.");
                 continue;
             }
-
             break;
         }
 
@@ -71,5 +63,24 @@ public class ClienteMulti {
         ParaRecibir paraRecibir = new ParaRecibir(s);
         Thread hiloParaRecibir = new Thread(paraRecibir);
         hiloParaRecibir.start();
+
+
+        Thread hiloHeartbeat = new Thread(() -> {
+            try {
+                DataOutputStream salidaPing = new DataOutputStream(s.getOutputStream());
+                while (true) {
+                    Thread.sleep(200);
+                    synchronized(s) {
+                        salidaPing.writeUTF("/ping");
+                        salidaPing.flush();
+                    }
+                }
+            } catch (InterruptedException e) {
+            } catch (IOException e) {
+                System.err.println("\n*** ERROR DE CONEXIÓN: Red caída . ***");
+                System.exit(0);
+            }
+        });
+        hiloHeartbeat.start();
     }
 }

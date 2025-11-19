@@ -13,7 +13,6 @@ import java.util.logging.Logger;
 public class BdGrupos {
     private static final Logger LOGGER = Logger.getLogger(BdGrupos.class.getName());
 
-
     public static void inicializarGrupos() {
         try {
             Integer idTodos = obtenerIdGrupo("Todos");
@@ -30,16 +29,19 @@ public class BdGrupos {
     }
 
     private static void actualizarMiembrosGrupoTodos(Integer idGrupo) throws SQLException {
+        List<Integer> idsUsuarios = new ArrayList<>();
         String sql = "SELECT id FROM " + BaseDatos.TABLE_USUARIOS;
         try (Connection conn = BaseDatos.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                unirseAGrupo(rs.getInt("id"), idGrupo);
+                idsUsuarios.add(rs.getInt("id"));
             }
         }
+        for (Integer id : idsUsuarios) {
+            unirseAGrupo(id, idGrupo);
+        }
     }
-
 
     public static Integer obtenerIdGrupo(String nombre) throws SQLException {
         String sql = "SELECT id FROM " + BaseDatos.TABLE_GRUPOS + " WHERE nombre = ?";
@@ -62,7 +64,6 @@ public class BdGrupos {
             return null;
         }
     }
-
 
     public static boolean crearGrupo(String nombre, String usuarioCreador) {
         String sql = "INSERT INTO " + BaseDatos.TABLE_GRUPOS + " (nombre, id_creador) VALUES (?, ?)";
@@ -149,7 +150,6 @@ public class BdGrupos {
         }
     }
 
-
     public static boolean esMiembroDeGrupo(String usuario, String grupo) {
         String sql = "SELECT 1 FROM " + BaseDatos.TABLE_MIEMBROS_GRUPO + " m JOIN " + BaseDatos.TABLE_USUARIOS + " u ON m.id_usuario = u.id JOIN " + BaseDatos.TABLE_GRUPOS + " g ON m.id_grupo = g.id WHERE u.usuario = ? AND g.nombre = ?";
         try (Connection conn = BaseDatos.getConnection();
@@ -197,8 +197,6 @@ public class BdGrupos {
             return -1L;
         }
     }
-
-
 
     public static List<String> obtenerMensajesNoVistos(String usuario, String grupo) {
         List<String> mensajes = new ArrayList<>();

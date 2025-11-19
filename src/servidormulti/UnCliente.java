@@ -27,14 +27,15 @@ public class UnCliente implements Runnable {
     public String getNombreCliente() {
         return nombreCliente;
     }
+
     public void enviarMensaje(String mensaje) throws IOException {
-        this.salida.writeUTF(mensaje);
+        synchronized (salida) {
+            this.salida.writeUTF(mensaje);
+        }
     }
 
     public boolean puedeEnviarMensaje() {
-        if (registrado) {
-            return true;
-        }
+        if (registrado) return true;
         return mensajesRestantes > 0;
     }
 
@@ -43,16 +44,13 @@ public class UnCliente implements Runnable {
             mensajesRestantes--;
         }
     }
+
     public void setRegistrado(String nombre) {
         this.registrado = true;
         this.nombreCliente = nombre;
     }
-    public void setNombre(String nombre) {
-        this.nombreCliente = nombre;
-    }
-    public void setStatusRegistro(boolean estado) {
-        this.registrado = estado;
-    }
+    public void setNombre(String nombre) { this.nombreCliente = nombre; }
+    public void setStatusRegistro(boolean estado) { this.registrado = estado; }
 
     public boolean isRegistrado() {
         return registrado;
@@ -79,18 +77,54 @@ public class UnCliente implements Runnable {
         this.propuestaJuegoPendiente = estado;
     }
 
-
     @Override
     public void run() {
         try {
+            iniciarLatidoCardiaco();
+
             procesarConexionInicial();
             mostrarMenuComandos();
             procesarMensajesDelCliente();
+        } catch (EOFException e) {
         } catch (SocketException e) {
-            manejarDesconexion(e);
+            System.err.println(nombreCliente + " se ha desconectado (SocketException).");
         } catch (IOException ex) {
-            manejarIOException(ex);
+            System.err.println("Error de IO con " + nombreCliente);
+        } finally {
+            limpiarYDesconectar();
         }
+    }
+
+    private void iniciarLatidoCardiaco() {
+        Thread hiloPing = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(1000);
+                    enviarMensaje("/ping");
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        });
+        hiloPing.start();
+    }
+
+    private void limpiarYDesconectar() {
+        if (nombreCliente == null) return;
+
+        System.out.println("Limpiando conexión de: " + nombreCliente);
+
+        if (isRegistrado() && controladorJuego != null) {
+            try {
+                controladorJuego.finalizarPorDesconexion(this);
+            } catch (IOException ioException) {
+                System.err.println("Error cerrando juego: " + ioException.getMessage());
+            }
+        }
+        ServidorMulti.desconectarCliente(this);
+
+        try { entrada.close(); } catch(Exception e){}
+        try { salida.close(); } catch(Exception e){}
     }
 
     private void procesarConexionInicial() throws IOException {
@@ -124,6 +158,8 @@ public class UnCliente implements Runnable {
     private void procesarMensajesDelCliente() throws IOException {
         while (true) {
             String mensaje = entrada.readUTF();
+
+            if (mensaje.equals("/ping")) continue;
 
             if (!isRegistrado()) {
                 if (!puedeEnviarMensaje()) {
@@ -163,28 +199,5 @@ public class UnCliente implements Runnable {
             return true;
         }
         return false;
-    }
-
-    private void manejarDesconexion(SocketException e) {
-        if (nombreCliente != null) {
-            if (isRegistrado() && controladorJuego != null) {
-                try {
-                    controladorJuego.finalizarPorDesconexion(this);
-                } catch (IOException ioException) {
-                    System.err.println("Error al finalizar juego por desconexion: " + ioException.getMessage());
-                }
-            }
-            ServidorMulti.desconectarCliente(this);
-        }
-    }
-    private void manejarIOException(IOException ex) {
-        if (nombreCliente != null && isRegistrado() && controladorJuego != null) {
-            try {
-                controladorJuego.finalizarPorDesconexion(this);
-            } catch (IOException ioException) {
-                System.err.println("Error al finalizar juego por IOException: " + ioException.getMessage());
-            }
-            ServidorMulti.desconectarCliente(this);
-        }
     }
 }
