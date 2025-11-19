@@ -17,7 +17,15 @@ public class ClienteMulti {
     }
 
     public static void main(String[] args) throws IOException {
-        Socket s = new Socket("localhost", 8080);
+        Socket s = null;
+        try {
+            s = new Socket("localhost", 8080);
+        } catch (IOException e) {
+            System.err.println("\n*** ERROR CRÍTICO: No se pudo conectar con el servidor (localhost:8080). ***");
+            System.err.println("Asegúrese de que el servidor esté en funcionamiento y accesible.");
+            return;
+        }
+
 
         System.out.println("Opciones de inicio:");
         System.out.println("1. Entrar como invitado (3 mensajes limitados)");
