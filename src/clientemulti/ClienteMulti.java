@@ -18,7 +18,8 @@ public class ClienteMulti {
     }
 
     public static void main(String[] args) throws IOException {
-        Socket s = new Socket("192.168.1.184", 8080);
+        Socket s = new Socket("localhost", 8080);
+        s.setSoTimeout(4000);
 
         System.out.println("Opciones de inicio:");
         System.out.println("1. Entrar como invitado (3 mensajes limitados)");
