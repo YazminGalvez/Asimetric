@@ -162,15 +162,22 @@ public class UnCliente implements Runnable {
         ServidorMulti.clientes.put(nombreCliente, this);
     }
 
+    // En src/servidormulti/UnCliente.java
+
     private void mostrarMenuComandos() throws IOException {
-        enviarMensaje("Sistema: Bienvenido al Chat Asimétrico.");
-        enviarMensaje("Sistema: Juega al Gato (solo usuarios registrados):");
+        enviarMensaje("Sistema: Juega al Gato:");
         enviarMensaje("Sistema: - Proponer juego: /gato <usuario>");
         enviarMensaje("Sistema: - Responder propuesta: acepto <usuario> o rechazo <usuario>");
         enviarMensaje("Sistema: - Mover ficha: mover <fila> <columna> (ej: mover 1 3)");
-        enviarMensaje("Sistema: Ranking de Gato (solo usuarios registrados):");
+
+        enviarMensaje("Sistema: Ranking de Gato:");
         enviarMensaje("Sistema: - Ver Ranking General: /ranking");
         enviarMensaje("Sistema: - Estadisticas: /vs <usuario1> <usuario2>");
+
+        enviarMensaje("Sistema: Privacidad y Bloqueos:");
+        enviarMensaje("Sistema: - Bloquear usuario: /bloquear <usuario>");
+        enviarMensaje("Sistema: - Desbloquear usuario: /desbloquear <usuario>");
+
         enviarMensaje("Sistema: Comandos de Grupo:");
         enviarMensaje("Sistema: - Unirse/Cambiar: /grupo <nombre>");
         enviarMensaje("Sistema: - Unirse: /unir <nombre>");
